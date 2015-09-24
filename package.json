@@ -1,8 +1,8 @@
 {
   "name": "perli",
-  "description": "simple Perl REPL",
+  "description": "Multi-platform REPL for Perl",
   "private": false,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "os": [
     "linux",
     "darwin",

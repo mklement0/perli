@@ -19,7 +19,7 @@ use if $^O eq 'MSWin32', 'Win32::Console::ANSI'; # !! Without this, ANSI codes d
 
 my $kTHIS_NAME = basename $0;
 my $kTHIS_HOME = 'https://github.com/mklement0/perli';
-my $kTHIS_VERSION = 'v0.0.0'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
+my $kTHIS_VERSION = 'v0.1.0'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
 
 # Debugging support: define p() for printing values diagnostically.
 use Data::Dumper; $Data::Dumper::Terse = 1; sub p { print Dumper(@_); };
@@ -494,12 +494,13 @@ EOF
 #   -MEnglish ... enable natural-language aliases for Perl's special variables (e.g., $MATCH for $&)
 #                 !! While in theory we would like user to be able to deactivate this, it doesn't work *technically*
 #                 - once -MEnglish is present, a subsequent -M-English or even a no English; doesn't deactivate it (verified on v5.18 and v5.22)
+#   -MMath::Trig ... enable trigonometric functions and the `pi` constant
 #   -M-strict=vars ... same as: `no strict "vars"` - allows defining global vars as `$foo = ...`, which is not only more convenient than typing `my $foo = ...`
 #                      but is actually needed for REPL-session-global variables.
 #  [x] -M$replPerlVersion effectively enables all optional features for the host Perl version, such as `say` in versions >= v5.10.
 # Finally, append user-specified arguments to pass through (note that Windows requires " (a double-quote) as the quote char.)
 my $delim = $^O eq 'MSWin32' ? '"' : "'";
-my $perlArgs = " -n -w -C -Mutf8 -MEnglish -M-strict=vars -M$replPerlVersion " . join(' ', map { $delim . $_ . $delim } @passthruArgs);
+my $perlArgs = " -n -w -C -Mutf8 -MEnglish -MMath::Trig -M-strict=vars -M$replPerlVersion " . join(' ', map { $delim . $_ . $delim } @passthruArgs);
 
 
 # Invoke Perl wih the REPL code:
@@ -692,6 +693,9 @@ To SUPPRESS all warnings, start `perli` with `perli -X`.
 `use English;` is in effect to enable the natural-language aliases for Perl's
 special variables; e.g., `$MATCH` for `$&`.
 
+`use Math::Trig;` is in effect to facilitate calculations involving trigonometry
+and the constant pi.
+
 ### Input
 
 Only *single-line* input is supported, and each line submitted is its own
@@ -860,6 +864,8 @@ and products based on it (such as Git Bash) do not support locales at all (the
     If set to `1`, turns off all colored output.
 
 ## PLATFORM NOTES
+
+`perli` requires Perl version v5.6.2 or higher.
 
 On Unix platforms, `perli` makes use of the `rlwrap` utility, if present,  
 to provide command-line editing support, persistent command history,  

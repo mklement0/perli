@@ -8,15 +8,138 @@
 
 # perli &mdash; introduction
 
-Perl REPL
+`perli` is a **multi-platform [Perl](https://www.perl.org/) [REPL (read-eval-print-loop)](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print%20loop)**
+for interactive experimentation with Perl code, convenient documentation lookups, and quick computations.
+
+On Unix-like platforms, `perli` makes use of the [`rlwrap` utility](https://github.com/hanslub42/rlwrap) to provide
+command-line editing support, persistent command history, and tab-completion;
+see the [Installation](#installation) chapter below.
+
+See the examples below, concise [usage information](#usage) further below,
+or read the [manual](doc/perli.md).
+
+# Examples
+
+## Startup and help
+
+Once you enter `perli`, use `?` for help.
+
+![startup and help example](doc/images/example-startup-and-help.png)
+
+## Automatic printing of results, use as a calculator
+
+Results of expressions are automatically printed, which makes `perli` handy
+as an interactive calculator:
+
+![startup and help example](doc/images/example-calculator.png)
+
+Results are printed with the `Data::Dumper` core Perl module, which means
+that they are reusable as input.
+
+## Inspecting a variable
+
+The following example inspects the special `%INC` variable, which contains the
+list of loaded modules. Note the first entry, which is `perli`'s own (optional)
+initialization file.
+
+The `\` prefix here is not strictly necessary, but ensures that the hashtable is
+printed in prettier form.
+
+![variable-inspection example](doc/images/example-inspect-variable.png)
+
+## Inspecting regular-expression matches
+
+`perli` provides the `.remi` (for *r*egular-*e*xpression *m*atch *i*nfo)
+command, which, in addition to an expression's own result, prints the values
+of the special variables that Perl maintains about the most recent successful
+regex match:
+
+![regex-matching example](doc/images/example-regex-matching.png)
+
+## Looking up Perl documentation
+
+Invoking documentation overlays the REPL temporarily, as a `man` page would
+(not shown here).
+
+By default, `perli` tries to guess the _type_ of the element to look up, and
+invokes `perldoc` behind the scenes accordingly.
+
+* Prefix form
+
+The following is the equivalent of `perldoc perlrun`:
+
+![startup and help example](doc/images/example-doc-lookup-pre.png)
+
+* Postfix form
+
+This form is handy for lookups while you're in the middle of typing an expression.
+
+The following is the equivalen of `perldoc -f split`:
+
+![startup and help example](doc/images/example-doc-lookup-post.png)
+
+* Explicit-options form
+
+If the "fuzzy" default lookup doesn't find anything, or shows the wrong page,
+you can use the prefix form with explicit `perldoc` options.
+
+The following example searches the FAQs (`-q`) for the term `while` (the default
+lookup would have looked for the _keyword_).
+
+![startup and help example](doc/images/example-doc-lookup-option.png)
+
 
 # Installation
 
-**Supported platforms**
+## Supported platforms and prerequisites
 
-* **Linux**, **OSX**, **Windows**
+`perli` runs on **Linux**, **OSX**, and **Windows**, with **Perl v5.6.2 or higher** installed.
+
+Using the manual installation process detailed below, `perli` may work on other Unix-like platforms too.
+
+On Unix-like platforms, `perli` makes use of the `rlwrap` utility, if present,  
+to provide command-line editing support, persistent command history,  
+and simple tab completion.
+
+On Windows, `rlwrap` is not available, unfortunately, but you do get  
+in-session history and basic command-line editing out of the box (but no
+tab-completion).
+
+You can install `rlwrap` as follows:
+
+* Debian-based Linux distros such as Ubuntu:
+
+        sudo apt-get install rlwrap
+
+* Fedora:
+
+        sudo yum install rlwrap
+
+* OSX, via [Homebrew](http://brew.sh):
+
+        brew install rlwrap
+
+* Unix-emulation environments for Windows:
+
+    * Cygwin (Windows):
+
+         Re-run Cygwin's `setup*.exe` and install
+         `Utils` > `rlwrap and Base` > `libreadline*`
+
+    * MSYS / MinGW / Git Bash (Windows):
+
+         Sadly, `rlwrap` is not offered. The next best thing is to use a
+         native Windows Perl version, with which you get at least basic command-line
+         editing and in-session history:
+         Deactivate the Unix Perl with `mv /bin/perl /bin/perl.inactive`
+         and install [Strawberry Perl](http://strawberryperl.com/)
+
+* All others: see [`rlwrap`'s homepage](https://github.com/hanslub42/rlwrap)
+
 
 ## Installation from the npm registry
+
+<sup>Note: Even if you don't use Node.js, its package manager, `npm`, works across platforms and is easy to install; try [`curl -L http://git.io/n-install | bash`](https://github.com/mklement0/n-install)</sup>
 
 With [Node.js](http://nodejs.org/) or [io.js](https://iojs.org/) installed, install [the package](https://www.npmjs.com/package/perli) as follows:
 
@@ -27,13 +150,23 @@ With [Node.js](http://nodejs.org/) or [io.js](https://iojs.org/) installed, inst
 * Whether you need `sudo` depends on how you installed Node.js / io.js and whether you've [changed permissions later](https://docs.npmjs.com/getting-started/fixing-npm-permissions); if you get an `EACCES` error, try again with `sudo`.
 * The `-g` ensures [_global_ installation](https://docs.npmjs.com/getting-started/installing-npm-packages-globally) and is needed to put `perli` in your system's `$PATH`.
 
-## Manual installation (Linux and OSX)
+## Manual installation
+
+### Unix-like platforms
 
 * Download [the CLI](https://raw.githubusercontent.com/mklement0/perli/stable/bin/perli) as `perli`.
 * Make it executable with `chmod +x perli`.
 * Move it or symlink it to a folder in your `$PATH`, such as `/usr/local/bin` (OSX) or `/usr/bin` (Linux).
 
+### Windows
+
+* Download [the CLI](https://raw.githubusercontent.com/mklement0/perli/stable/bin/perli) as `perli.pl`.
+* Either move `perli.pl` itself into a folder in your `%PATH%`, or write a 
+wrapper batch file named `perli.cmd` that invokes it.
+
 # Usage
+
+Find brief usage information below; for complete documentation, once installed, run `man perli` (`perli --man` on Windows and if installed manually), or read the [manual online](doc/perli.md).
 
 <!-- DO NOT EDIT THE FENCED CODE BLOCK and RETAIN THIS COMMENT: The fenced code block below is updated by `make update-readme/release` with CLI usage information. -->
 

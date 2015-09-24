@@ -82,6 +82,9 @@ To SUPPRESS all warnings, start `perli` with `perli -X`.
 `use English;` is in effect to enable the natural-language aliases for Perl's
 special variables; e.g., `$MATCH` for `$&`.
 
+`use Math::Trig;` is in effect to facilitate calculations involving trigonometry
+and the constant pi.
+
 ### Input
 
 Only *single-line* input is supported, and each line submitted is its own
@@ -250,6 +253,8 @@ and products based on it (such as Git Bash) do not support locales at all (the
     If set to `1`, turns off all colored output.
 
 ## PLATFORM NOTES
+
+`perli` requires Perl version v5.6.2 or higher.
 
 On Unix platforms, `perli` makes use of the `rlwrap` utility, if present,  
 to provide command-line editing support, persistent command history,  

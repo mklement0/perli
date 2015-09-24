@@ -1,4 +1,4 @@
-.TH "PERLI" "1" "September 2015" "v0.0.0" ""
+.TH "PERLI" "1" "September 2015" "v0.1.0" ""
 .SH "NAME"
 \fBperli\fR \- a simple, convenient Perl REPL
 .SH SYNOPSIS
@@ -97,6 +97,9 @@ To SUPPRESS all warnings, start \fBperli\fP with \fBperli \-X\fP\|\.
 .P
 \fBuse English;\fP is in effect to enable the natural\-language aliases for Perl's
 special variables; e\.g\., \fB$MATCH\fP for \fB$&\fP\|\.
+.P
+\fBuse Math::Trig;\fP is in effect to facilitate calculations involving trigonometry
+and the constant pi\.
 .SS Input
 .P
 Only \fIsingle\-line\fR input is supported, and each line submitted is its own
@@ -294,6 +297,8 @@ If set to \fB1\fP, turns off all colored output\.
 
 .RE
 .SH PLATFORM NOTES
+.P
+\fBperli\fP requires Perl version v5\.6\.2 or higher\.
 .P
 On Unix platforms, \fBperli\fP makes use of the \fBrlwrap\fP utility, if present,
 .br

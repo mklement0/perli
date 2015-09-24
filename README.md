@@ -3,8 +3,31 @@
 <!-- [![npm version](https://img.shields.io/npm/v/perli.svg)](https://npmjs.com/package/perli) [![license](https://img.shields.io/npm/l/perli.svg)](https://github.com/mklement0/perli/blob/master/LICENSE.md)
  -->
 
-<!-- START doctoc -->
-<!-- END doctoc -->
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+**Contents**
+
+- [perli &mdash; introduction](#perli-&mdash-introduction)
+- [Examples](#examples)
+  - [Startup and help](#startup-and-help)
+  - [Automatic printing of results, use as a calculator](#automatic-printing-of-results-use-as-a-calculator)
+  - [Inspecting a variable](#inspecting-a-variable)
+  - [Inspecting regular-expression matches](#inspecting-regular-expression-matches)
+  - [Looking up Perl documentation](#looking-up-perl-documentation)
+- [Installation](#installation)
+  - [Supported platforms and prerequisites](#supported-platforms-and-prerequisites)
+  - [Installation from the npm registry](#installation-from-the-npm-registry)
+  - [Manual installation](#manual-installation)
+    - [Unix-like platforms](#unix-like-platforms)
+    - [Windows](#windows)
+- [Usage](#usage)
+- [License](#license)
+  - [Acknowledgements](#acknowledgements)
+  - [npm dependencies](#npm-dependencies)
+- [Changelog](#changelog)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # perli &mdash; introduction
 
@@ -170,13 +193,33 @@ Find brief usage information below; for complete documentation, once installed, 
 
 <!-- DO NOT EDIT THE FENCED CODE BLOCK and RETAIN THIS COMMENT: The fenced code block below is updated by `make update-readme/release` with CLI usage information. -->
 
-```
-$ cli --help
+```nohighlight
+$ perli --help
+
+
+A simple, convenient Perl REPL for interactive experimentation.
+
+    perli [<options>]
+
+    --norc      skips loading of the initialization file
+
+    The following Perl options are also supported:
+
+    -M<name>    (repeatable) load a module and import its defaults,  
+                             or activate a pragma (-M-<name> deactivates)
+    -m<module>  (repeatable) load a module without importing
+    -I<dir>     (repeatable) prepend <dir> to module search path (@INC)
+
+Initialization file is ~/.perli_rc
+
+Standard options: --help, --man, --version, --home
 ```
 
 <!-- DO NOT EDIT THE NEXT CHAPTER and RETAIN THIS COMMENT: The next chapter is updated by `make update-readme/release` with the contents of 'LICENSE.md'. ALSO, LEAVE AT LEAST 1 BLANK LINE AFTER THIS COMMENT. -->
 
 # License
+
+Copyright (c) 2015 Michael Klement <mklement0@gmail.com> (http://same2u.net), released under the [MIT license](https://spdx.org/licenses/MIT#licenseText).
 
 ## Acknowledgements
 
@@ -188,6 +231,21 @@ This project gratefully depends on the following open-source components, accordi
 
 ## npm dependencies
 
+* [doctoc (D)](https://github.com/thlorenz/doctoc)
+* [json (D)](https://github.com/trentm/json)
+* [marked-man (D)](https://github.com/kapouer/marked-man#readme)
+* [replace (D)](https://github.com/harthur/replace)
+* [semver (D)](https://github.com/npm/node-semver#readme)
+* [tap (D)](https://github.com/isaacs/node-tap#readme)
+* [urchin (D)](https://github.com/tlevine/urchin)
+
 <!-- DO NOT EDIT THE NEXT CHAPTER and RETAIN THIS COMMENT: The next chapter is updated by `make update-readme/release` with the contents of 'CHANGELOG.md'. ALSO, LEAVE AT LEAST 1 BLANK LINE AFTER THIS COMMENT. -->
 
 # Changelog
+
+Versioning complies with [semantic versioning (semver)](http://semver.org/).
+
+<!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
+
+* **v0.1.0** (2015-09-24):
+  * Initial release.

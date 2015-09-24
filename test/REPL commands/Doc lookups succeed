@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# ---
+# IMPORTANT: Use the following statement at the TOP OF EVERY TEST SCRIPT
+#            to ensure that this package's 'bin/' subfolder is added to the path so that
+#            this package's CLIs can be invoked by their mere filename in the rest
+#            of the script.
+# ---
+PATH=${PWD%%/test*}/bin:$PATH
+
+# Helper function for error reporting.
+die() { (( $# > 0 )) && echo "ERROR: $*" >&2; exit 1; }
+
+# Invoke the REPL and isolate the result.
+replResult() {
+  # The prompt string is printed twice: once before the result, and once right after.
+  # Thus, choosing $'\3\n` as the prompt string facilitates parsing out the result
+  # using `sed`: everything between, and not including, lines that start with $'\3'.
+  PERLI_PS1=$'\3\n' perli --norc <<<"$1" | sed -n $'/^\3/,/^\3/ { s///; t\np; }'  
+}
+
+
+expected='perlrun'
+
+for expr in '? run' '.doc run' 'bar baz run?' '? -T perlrun'; do
+
+  res=$(replResult "$expr")
+  [[ $res =~ "$expected" ]] || die "Expected '$expected' in output from '$expr'; got: '$res'."
+  
+done
+
+exit 0

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# ---
+# IMPORTANT: Use the following statement at the TOP OF EVERY TEST SCRIPT
+#            to ensure that this package's 'bin/' subfolder is added to the path so that
+#            this package's CLIs can be invoked by their mere filename in the rest
+#            of the script.
+# ---
+PATH=${PWD%%/test*}/bin:$PATH
+
+# Helper function for error reporting.
+die() { (( $# > 0 )) && echo "ERROR: $*" >&2; exit 1; }
+
+# Invoke the REPL and isolate the result.
+replResult() {
+  # The prompt string is printed twice: once before the result, and once right after.
+  # Thus, choosing $'\3\n` as the prompt string facilitates parsing out the result
+  # using `sed`: everything between, and not including, lines that start with $'\3'.
+  PERLI_PS1=$'\3\n' perli --norc <<<"$1" | sed -n $'/^\3/,/^\3/ { s///; t\np; }'  
+}
+
+# Missing tests for:
+#  .home
+#  .cls/clear
+# Unclear, how to test these.
+
+# -- Test the commands that produce output.
+
+expressions=(  '.man'    '.sh echo "hi there"'   ' .remi "a" =~ "a"' )
+expectedVals=( 'perli'   'hi there'              '$&' )
+
+i=0
+for expr in "${expressions[@]}"; do
+
+  res=$(replResult "$expr")
+
+  expected="${expectedVals[i++]}"
+
+  [[ $res =~ "$expected" ]] || die "Expected '$expected' in output from '$expr'; got: '$res'."
+done
+
+# -- Test the exit commands.
+
+# Create a temp. FILE
+tmpFile=$(mktemp -t 'XXXX') # Works on both OSX and Linux; note: file will have random extension on OSX (e.g., '.../XXXX.bJViLcM3') and none on Linux (e.g., '.../vXDA')
+trap 'rm "$tmpFile"' EXIT # Set up exit trap to automatically clean up the temp file.
+
+for expr in '.exit' '.quit' 'exit'; do
+  res=$(replResult "$expr" 2>"$tmpFile")
+  [[ -z $res ]]     || die "Expected empty output from '$expr'; got: '$res'."
+  [[ -s $tmpFile ]] && die "Expected no stderr output from '$expr'; got: '$(<"$tmpFile")'."
+done
+
+exit 0

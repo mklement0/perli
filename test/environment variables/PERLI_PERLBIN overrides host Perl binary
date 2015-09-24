@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# ---
+# IMPORTANT: Use the following statement at the TOP OF EVERY TEST SCRIPT
+#            to ensure that this package's 'bin/' subfolder is added to the path so that
+#            this package's CLIs can be invoked by their mere filename in the rest
+#            of the script.
+# ---
+PATH=${PWD%%/test*}/bin:$PATH
+
+# Helper function for error reporting.
+die() { (( $# > 0 )) && echo "ERROR: $*" >&2; exit 1; }
+
+
+fakeBin=NoSuchThing
+
+# Invoke with nonexistent Perl binary: should result in failure.
+res=$(PERLI_PERLBIN=$fakeBin perli <<<'"unused"' 2>&1 1>/dev/null) && die "Invocation with fake binary '$fakeBin' succeeded unexpectedly."
+
+[[ $res =~ "$fakeBin" ]] || die "Expected '$fakeBin' in stderr output; got '$res'."

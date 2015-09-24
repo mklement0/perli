@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# ---
+# IMPORTANT: Use the following statement at the TOP OF EVERY TEST SCRIPT
+#            to ensure that this package's 'bin/' subfolder is added to the path so that
+#            this package's CLIs can be invoked by their mere filename in the rest
+#            of the script.
+# ---
+PATH=${PWD%%/test*}/bin:$PATH
+
+# Helper function for error reporting.
+die() { (( $# > 0 )) && echo "ERROR: $*" >&2; exit 1; }
+
+testInitFile=../.fixtures/.perli_rc
+[[ -f "$testInitFile" ]] || die "Test initialization file unexpectedly not found: '$testInitFile'"
+
+res=$(PERLI_RCFILE="$testInitFile" perli <<<"\$foo, basename 'a/fname'") || die "REPL invocation failed unexpectedly."
+
+# Expect the value of $foo, 'bar', and  'fname', the result of basename 'a/fname'
+expected=$'\'bar\'\n\'fname\''
+
+[[ $res =~ "$expected" ]] || die "Expected '$expected' in output from '$expr'; got: '$res'."
+
+exit 0

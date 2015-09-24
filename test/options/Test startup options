@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+# ---
+# IMPORTANT: Use the following statement at the TOP OF EVERY TEST SCRIPT
+#            to ensure that this package's 'bin/' subfolder is added to the path so that
+#            this package's CLIs can be invoked by their mere filename in the rest
+#            of the script.
+# ---
+PATH=${PWD%%/test*}/bin:$PATH
+
+# Helper function for error reporting.
+die() { (( $# > 0 )) && echo "ERROR: $*" >&2; exit 1; }
+
+# Invoke the REPL and isolate the result.
+replResult() {
+  # The prompt string is printed twice: once before the result, and once right after.
+  # Thus, choosing $'\3\n` as the prompt string facilitates parsing out the result
+  # using `sed`: everything between, and not including, lines that start with $'\3'.
+  PERLI_PS1=$'\3\n' perli --norc "$1" <<<"$2" | sed -n $'/^\3/,/^\3/ { s///; t\np; }'  
+}
+
+# -M<name> loads a module
+
+expr='basename "a/b"'
+expected="'b'"
+
+res=$(replResult -MFile::Basename "$expr")
+[[ $res == "$expected" ]] || die "Expected '$expected' from '$expr'; got: '$res'."
+
+
+# -m<name> loads a module without imports
+
+expr='basename "a/b"'  # this should fail with -mFile::Basename, because it basename() won't get imported into the caller's namespace.
+
+res=$(replResult -mFile::Basename "$expr" 2>/dev/null) || die "REPL unexpectedly reported nonzero exit code with -m<name> and input '$expr'."
+[[ -z $res ]] || die "Expected empty result from '$expr'; got: '$res'."
+
+# -M-<pragma> deactivates a pragma
+
+expr='say "hi"'  # this should fail with -M-feature=say, because say() shouldn't be available then.
+
+res=$(replResult -M-feature=say "$expr" 2>/dev/null) || die "REPL unexpectedly reported nonzero exit code with -M-<pragma> and input '$expr'."
+[[ -z $res ]] || die "Expected empty result from '$expr'; got: '$res'."
+
+# -I<dir> prepends a dir to @INC
+
+expr='@INC'
+expected="NotUsuallyThere"
+
+res=$(replResult -I$expected "$expr")
+[[ $res =~ "$expected" ]] || die "Expected '$expected' in output from '$expr'; got: '$res'."
+
+
+# -W turns ALL warnings on
+
+expr='$^W'
+expected='1' # !! This is not a sufficient test, as even with the -w option applied behind the scenes $^W reports 1; unclear, how to distinguish these 2 cases.
+
+res=$(replResult -W "$expr")
+[[ $res == "$expected" ]] || die "Expected '$expected' from '$expr'; got: '$res'."
+
+# -X turns all warnings OFF
+
+expr='$^W'
+expected='0'
+
+res=$(replResult -X "$expr")
+[[ $res == "$expected" ]] || die "Expected '$expected' from '$expr'; got: '$res'."
+
+
+exit 0
+
+
+

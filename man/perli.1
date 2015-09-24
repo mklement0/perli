@@ -1,0 +1,342 @@
+.TH "PERLI" "1" "September 2015" "v0.0.0" ""
+.SH "NAME"
+\fBperli\fR \- a simple, convenient Perl REPL
+.SH SYNOPSIS
+.P
+A simple, convenient Perl REPL for interactive experimentation\.
+.P
+.RS 2
+.nf
+perli [<options>]
+
+\-\-norc      skips loading of the initialization file
+
+The following Perl options are also supported:
+
+\-M<name>    (repeatable) load a module and import its defaults,  
+                         or activate a pragma (\-M\-<name> deactivates)
+\-m<module>  (repeatable) load a module without importing
+\-I<dir>     (repeatable) prepend <dir> to module search path (@INC)
+.fi
+.RE
+.P
+Initialization file is \fB~/\.perli_rc\fP
+.P
+Standard options: \fB\-\-help\fP, \fB\-\-man\fP, \fB\-\-version\fP, \fB\-\-home\fP
+.SH DESCRIPTION
+.P
+\fBperli\fP is a Perl REPL (read\-eval\-print loop) for interactive
+.br
+experimentation with Perl code, convenient documentation lookups,
+.br
+and quick computations\.
+.P
+On Unix\-like platforms, installation of \fBrlwrap\fP is highly recommended; see
+\fBPLATFORM NOTES\fP below\.
+.P
+Interactive input is executed line by line, and results are automatically
+.br
+printed\.
+.P
+Once you've entered the REPL (invoked \fBperli\fP), submit \fB?\fP for an
+.br
+overview of its features and commands\.
+.P
+An optional initialization file may be maintained at \fB~/\.perli_rc\fP\|\.
+.SH INITIALIZATION FILE
+.P
+To preload modules into the REPL, you may maintain an optional
+.br
+initialization file with Perl code at \fB~/\.perli_rc\fP, which is loaded
+.br
+automatically on startup\.
+.P
+\fICaveat\fR: The scope of \fBuse <pragma>\fP statements is limited to the
+.br
+initialization file itself;
+.br
+if you want a pragma such as \fBuse integer\fP to be in effect for the REPL,
+.br
+you must specify it on the command line with \fB\-M<pragma>\fP\|\.
+.P
+The file need not be a module, and nothing needs to be exported;
+.br
+simply load modules / declare subroutines for the REPL in the global
+.br
+namespace\.
+.P
+The last statement in the file is expected to return a truthy value;
+.br
+otherwise, a warning is issued\.
+.SH REPL FUNDAMENTALS AND LIMITATIONS
+.P
+A concise summary of most of the topics discussed below can be displayed from
+inside \fBperli\fP by submitting \fB?\fP\|\.
+.SS Perl features in effect by default
+.P
+The active locale's \fBcharacter encoding\fR is respected (with strings internally
+represented as Unicode and automatic translation to and from the locale's 
+encoding for streams and files, as if \fBperl \-C\fP had been run)\.
+Also see \fBLOCALE SUPPORT\fP below\.
+.P
+All \fBoptional features\fR of the host Perl version are enabled (as if \fBperl \-E\fP
+had been run)\. For instance, the \fBsay\fP feature is in effect in host Perl
+versions >= 5\.9\.5\.
+.br
+To deactivate all features, start \fBperli\fP with \fBperli \-M\-feature=:all\fP\|\.
+.br
+To activate a given version's feature bundle, start \fBperli\fP with something like
+.br
+\fBperli \-Mv5\.10\fP\|\.
+.P
+Useful \fBwarnings\fR are enabled by default (as if \fBperl \-w\fP had been run)\.
+.br
+To enable ALL warnings, start \fBperli\fP with \fBperli \-W\fP\|\.
+.br
+To SUPPRESS all warnings, start \fBperli\fP with \fBperli \-X\fP\|\.
+.P
+\fBuse English;\fP is in effect to enable the natural\-language aliases for Perl's
+special variables; e\.g\., \fB$MATCH\fP for \fB$&\fP\|\.
+.SS Input
+.P
+Only \fIsingle\-line\fR input is supported, and each line submitted is its own
+scope; this has the following implications:
+.RS 0
+.IP \(bu 2
+Pragmas such as \fBuse locale;\fP only take effect for the line at hand;
+.br
+for pragmas to take effect globally, you must specify them on the
+.br
+command line when starting \fBperli\fP; e\.g\., \fBperli \-Mlocale\fP\|\.
+.IP \(bu 2
+Variables declared with \fBmy\fP only exist on the line they're defined on;
+omit the \fBmy\fP to create global variables, which stay in scope for the
+.br
+remainder of the REPL session\.
+
+.RE
+.P
+To complement direct input of Perl code, special REPL commands \- commmands
+provided by \fBperli\fP itself \- are availabe, all of which start with \fB\|\.\fP and
+must be the only statement on the line\.
+\fB?\fP is an alias for \fB\|\.help\fP or \fB\|\.doc\fP
+.P
+Submit \fB?\fP from inside \fBperli\fP to see all REPL commands; only a select few are
+highlighted here\.
+.SS Documentation lookups
+.P
+\fBperli\fP supports Perl documentation lookups using either of the following 
+two forms:
+.RS 0
+.IP \(bu 2
+\fB? [<perldoc\-opt>] <search\-term>\fP
+.IP \(bu 2
+\fB\|\.\.\. <search\-term>?\fP
+
+.RE
+.P
+The first form is the stand\-alone form that also allows explicit passing of
+options to \fBperldoc\fP\|\.
+.P
+The second form is handy for quick lookup of a term as you're typing a line of
+Perl code\.
+.P
+In the first form without \fB[<perldoc\-opt>]\fP, and invariably in the second form,
+the lookup is "fuzzy" for convenience, i\.e\., \fBperli\fP tries to guess the type of
+element being searched for, and automatically passes the appropriate perldoc
+option (\fB\-f\fP for function, \.\.\.) behind the scenes\. \fBperli\fP may try several
+options in sequence until a lookup succeeds\.
+.P
+If the lookup ultimately fails, or \fBperli\fP guessed the wrong type, use the first
+form and pass \fBperldoc\fP options explicitly; e\.g\.: \fB? \-q while\fP explicitly
+searches the FAQs for the word \fBwhile\fP instead of looking up the flow\-control
+keyword\.
+.P
+As with \fBperldoc\fP, topics may be looked up without the \fBperl\fP prefix; e\.g\.,
+\fB? run\fP is a shortcut for \fB? perlrun\fP\|\.
+.SS Regex\-match inspection
+.P
+\fB\|\.remi \.\.\. =~ \.\.\.\fP facilitates inspection of regular\-expression matches by
+automatically printing the automatic variables that Perl defines for the most
+recent successful match\.
+.P
+Note that only a single expression involving \fB=~\fP is supported; e\.g\.:
+.P
+.RS 2
+.nf
+\|\.remi "a barn\." =~ /(?<foo>b(\.)(\.))n/
+.fi
+.RE
+.P
+Following the expression's own result, the values of the following special
+variables are printed (\fBuse English;\fP aliases in parentheses):
+.P
+.RS 2
+.nf
+$` ($PREMATCH), $& ($MATCH), $' ($POSTMATCH),
+%\- (%LAST_MATCH_START), @\- (@LAST_MATCH_START), @+ (@LAST_MATCH_END)
+.fi
+.RE
+.P
+To reduce noise, only non\-empty values are printed\.
+.P
+Note that \fB%\-\fP is only printed if \fInamed\fR capture groups are present, and that
+the related \fB%+\fP (\fB%LAST_PAREN_MATCH\fP) is never printed, because its information
+is effectively contained in the value of \fB%\-\fP\|\.
+.P
+As a reminder, a regex operation's result is a Boolean, if the regex contains
+no capture groups at all, and the list of capture group values otherwise \-
+whether from named or unnamed groups\.
+.SS Output printing and formatting
+.P
+Evaluation results are automatically printed, using the core \fBData::Dumper\fP
+module, which presents results in a way that allows its reuse as input and
+shows the structure of the result\.
+.P
+To best represent arrays and hashes, store them in a variable first and prefix
+the variabe with \fB\\\fP (so as to hand a \fIreference\fR to \fBData::Dumper\fP); try
+\fB\\%ENV\fP, for instance\.
+.P
+To print a result as\-is instead, use an explicit output command, such as
+\fBprint\fP, \fBprintf\fP or \fBsay\fP, but note that the automatic result\-printing
+mechanism still applies and then appends \fB1\fP, which is the return value from
+these output statements\. Explicit output commands are also needed if locale
+support is activated and numbers should be formatted accordingly \- see
+\fBLOCALE SUPPORT\fP below\.
+.P
+Warnings and error messages are printed in different colors so as to stand out\.
+However, you can disable coloring altogether with the \fBPERLI_NOCOLOR\fP
+enviroment variable \- see \fBENVIRONMENT VARIABLES\fP below\.
+.SS Tab completion
+.P
+If \fBrlwrap\fP is available (see \fBPLATFORM NOTES\fP below), tab\-completion
+is available, but it lacks context\-awareness so that ALL tokens are offered
+in any context, which can be confusing\.
+.br
+For instance, typing \fB$<tab>\fP does NOT limit the completion candidates to just
+variable names, unfortunately\.
+(Conceivably, this could be remedied in a future \fBperli\fP release, using
+\fBrlwrap\fP\|'s custom tab\-completion feature\.)
+.P
+The following elements are added to the pool of tab\-completion tokens:
+.RS 0
+.IP \(bu 2
+Perl functions, operators, compound statements
+.IP \(bu 2
+Perl's special variables
+.IP \(bu 2
+\fBperli\fP\|'s own REPL commands
+.IP \(bu 2
+any token typed or output during a REPL session
+
+.RE
+.P
+Note: The latter facilitates reusing previously typed tokens such as custom
+variables, but, due to indiscriminately adding tokens both from the input and
+output of commands, can also introduce noise\.
+.P
+Generally, typing at least a few characters reduces the set of candidates,
+and repeatedly pressing the Tab key cycles through them\.
+.SS Command history
+.P
+If \fBrlwrap\fP is available (see \fBPLATFORM NOTES\fP below), a persistent command
+history is maintained in file \fB~/\.perli_history\fP
+.SH LOCALE SUPPORT
+.P
+Your system's active locale is only respected in terms of \fIcharacter
+encoding\fR;
+NO other aspects of the locale, notably number formatting, are explicitly
+activated, deferring to the host Perl's default behavior\.
+.P
+Perl's default behavior is NOT to support the active locale so as to maintain
+backward compatibility\.
+Locale support \- once activated with  \fBuse locale;\fP \- is patchy in older Perl
+versions and the behavior changed over time; UTF\-8\-based locales further
+complicate things \- see \fBperldoc perllocale\fP or visit
+.br
+http://perldoc\.perl\.org/perllocale\.html
+.P
+To activate locale support in \fBperli\fP, start with \fBperli \-Mlocale\fP\|\.
+.P
+Note, however, that the \fIautomatically\fR printed numeric results do NOT
+reflect Perl's effective LC_NUMERIC locale category; use explicit \fBprint\fP,
+\fBprintf\fP, or \fBsay\fP statements instead, but note that the automatic
+result\-printing mechanism still applies and then appends \fB1\fP, which is the
+return value from these output statements\.
+.P
+Note that, as of this writing, the MSYS Unix\-emulation enviroment for Windows
+and products based on it (such as Git Bash) do not support locales at all (the
+\|'C' locale is invariably in effect)\.
+.SH ENVIRONMENT VARIABLES
+.RS 0
+.IP \(bu 2
+\fBPERLI_PERLBIN\fP
+.br
+Allows overriding the \fBperl\fP executable that is used to run the REPL\.
+.br
+By default, the (first) \fBperl\fP executable in the system's path is used\.
+.IP \(bu 2
+\fBPERLI_PS1\fP
+.br
+If specified, overrides the default prompt\. Specify the string
+.br
+including a space to put between the prompt proper and the start
+.br
+of the user input, if desired\.
+.br
+Note that if you want the prompt to be colored, the value has to
+.br
+include the relevant ANSI color escape sequences\. 
+.IP \(bu 2
+\fBPERLI_NOCOLOR\fP
+.br
+If set to \fB1\fP, turns off all colored output\.
+
+.RE
+.SH PLATFORM NOTES
+.P
+On Unix platforms, \fBperli\fP makes use of the \fBrlwrap\fP utility, if present,
+.br
+to provide command\-line editing support, persistent command history,
+.br
+and simple tab completion\.
+.P
+Installing \fBrlwrap\fP is highly recommended, and in its absence a warning
+.br
+with download instructions is given\.
+.P
+On Windows, \fBrlwrap\fP is not available, unfortunately, but you do get
+.br
+in\-session history and basic command\-line editing out of the box\.
+.SH LICENSE
+.P
+For license information and more, visit the home page by running
+.br
+\fBperli \-\-home\fP, or, from within the REPL, \fB\|\.home\fP\|\.
+.SH STANDARD OPTIONS
+.P
+All standard options provide information only\.
+.RS 0
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.br
+Prints the contents of the synopsis chapter to stdout for quick
+.br
+reference\.
+.IP \(bu 2
+\fB\-\-man\fP
+.br
+Displays this manual page, which is a helpful alternative to using
+.br
+\fBman\fP, if the manual page isn't installed, such as on Windows\.
+.IP \(bu 2
+\fB\-\-version\fP
+.br
+Prints version information\.
+.IP \(bu 2
+\fB\-\-home\fP
+.br
+Opens this utility's home page in the system's default web browser\.
+
+.RE
+

@@ -1,0 +1,895 @@
+#!/usr/bin/env perl
+
+# Require the most recent among the min. version required among all modules used - both in this script and the REPL invoked:
+# - Conditional `use` with an `if` expression became core in v5.6.2
+# - File::Temp became core in v5.6.1.
+# Note that we use a float rather than a v-string, because 5.5- versions don't recognize v-strings, and their use would result in a confusing error message.
+# AVOID USE OF // (logical defined-or) IN THIS SCRIPT, BECAUSE IT REQUIRES 5.10+
+use 5.006_002;
+use utf8;
+use open ':locale';
+
+use strict;
+use warnings;
+use File::Basename;
+use File::Spec;
+use File::Temp qw(tempfile);
+use IO::Handle;
+use if $^O eq 'MSWin32', 'Win32::Console::ANSI'; # !! Without this, ANSI codes don't work on Windows.
+
+my $kTHIS_NAME = basename $0;
+my $kTHIS_HOME = 'https://github.com/mklement0/perli';
+my $kTHIS_VERSION = 'v0.0.0'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
+
+# Debugging support: define p() for printing values diagnostically.
+use Data::Dumper; $Data::Dumper::Terse = 1; sub p { print Dumper(@_); };
+
+sub openurl; # forward-declare helper function
+
+# Deal with standard options.
+if (@ARGV) {
+  if ($ARGV[0] eq '--version') { print "${kTHIS_NAME} ${kTHIS_VERSION}\nFor license information and more, visit $kTHIS_HOME\n"; exit 0; }
+  elsif ($ARGV[0] eq '--home') { openurl $kTHIS_HOME; exit $? >> 8; }
+  elsif ($ARGV[0] =~ '^(-h|--help)$') { 
+    # Extract the contents of the SYNOPSIS chapter from the embedded Markdown-formatted man-page document.
+    my $txt = join '', <main::DATA>; close main::DATA;
+    $txt = (split /^#/m, (split /^## SYNOPSIS\n/m, $txt)[1])[0];
+    $txt =~ tr/`//d;  # remove ` chars.
+    print STDOUT $txt;
+    exit 0;
+  }
+  elsif ($ARGV[0] =~ m'^--(man|man-source)$') {
+    my $useembedded = $1 eq 'man-source';
+    my $nullSink = File::Spec->devnull();
+    # Try to open the regularly installed man page first.
+    if ($useembedded or system("man 1 $kTHIS_NAME 2>$nullSink") != 0) {
+      # Fall back to printing the embedded Markdown man-page document.
+      # Determine the pager to use.
+      my $pager = 'more';
+      `which less 2>$nullSink`; $pager = 'less' if $? == 0;
+      # Extract the Markdown man-page document and pipe it to the pager.
+      open (my $outPipe, "| $pager");
+      print $outPipe <main::DATA>;
+      close main::DATA;
+      close $outPipe;
+    }
+    exit $? >> 8;
+  }
+}
+
+# Options parsing.
+
+# Filter out our OWN options from among the putative Perl options.
+my @passthruArgs = @ARGV;
+
+my $dontLoadInitFile;
+for (qw/--norc/) {
+  my $countBefore = scalar(@passthruArgs);
+  my $re = "^${_}\$";
+  @passthruArgs = grep { ! m/$re/ } @passthruArgs;
+  $dontLoadInitFile = ($_ eq '--norc' and $countBefore > scalar(@passthruArgs));
+}
+
+# @passthruArgs now only contains putative Perl options.
+# We only allow a subset of Perl options, and accept no operands, 
+# so let's ensure that's the case.
+my @unsupportedArgs = grep { ! m/^-[mMIWX]/ } @passthruArgs; # note: we don't validate the presence of option-*arguments* for -M/-m and -I - we let Perl itself deal with that.
+if (@unsupportedArgs) {
+  die "$kTHIS_NAME: ARGUMENT ERROR: Unexpected argument(s): @unsupportedArgs\nUse -h for help.\n";
+}
+
+# Now that we know we have valid options (though the ones we pass through
+# to Perl could still cause an error later):
+# Investigate rlwrap availability.
+# Unix: See if rlwrap is available and warn, if not.
+# Windows: Note that rlwrap is not available, and that while the standard console
+#          provides basic command-line editing and in-session history, 
+#          it lacks both a persistent history and tab completion.
+sub printWarn { print STDERR "\e[33m" . $_[0] . "\e[0m" };
+my $useRlWrap;
+if (-t 0) {  # If stdin is not connected to a terminal - for testing - skip rlwrap.
+  if ($^O eq 'MSWin32') { # Windows
+    # Sadly, there is no rlwrap version for Windows.
+    printWarn <<'EOF';
+  NOTE: On Windows, tab completion and persistent history are not supported.
+EOF
+  } else { # Unix
+    $useRlWrap = 1; # We want to use rlwrap.
+    # See if rlwrap is actually available, and warn, if not.
+    if (! `command -v rlwrap 2>/dev/null`) {
+      undef $useRlWrap;
+      printWarn <<'EOF';
+  WARNING:
+    `rlwrap` not found: keyboard support for command-line editing,
+    command history, and tab-completion will not be available.
+    Install rlwrap as follows:
+     - OSX, via Homebrew (http://brew.sh):
+         brew install rlwrap
+     - Debian-based Linux distros such as Ubuntu:
+         sudo apt-get install rlwrap
+     - Fedora:
+         sudo yum install rlwrap
+     - Cygwin (Windows):
+         Re-run Cygwin's setup*.exe and install
+         Utils > rlwrap and Base > libreadline*.
+     - MSYS / MinGW / Git Bash (Windows):
+         Sadly, rlwrap is not offered. The next best thing is to use a
+         native Windows Perl, with which you get at least basic command-line
+         editing and in-session history support:
+         Deactivate the Unix Perl with \`mv /bin/perl /bin/perl.inactive\`
+         and install Strawberry Perl: http://strawberryperl.com/
+     - All others:
+         See https://github.com/hanslub42/rlwrap
+EOF
+    }
+  }
+}
+
+# The actual REPL code - as a TEMPLATE.
+# {{...}} tokens are template placeholders instantiated below.
+my $replScriptText = <<'EOF_REPL';
+    BEGIN {
+
+      use Data::Dumper; # the module for printing results in human-readable-yet-evalable fashion.
+      $Data::Dumper::Terse = 1; # don't print auto-generated variable names.
+      $Data::Dumper::Sortkeys = 1; # print hash keys sorted
+      # !! As of the version that comes with v5.18.2, Data::Dumper is NOT UTF-8 AWARE - it seemingly outputs a single-byte encoding producing invalid-as-UTF8 characters
+      # !! that are then represented as '\x{byteVal}' in the output. Setting ::Useperl to 1 MOSTLY works around the problem, but comes at the expense of performance:
+      # !! Data::Dumper then uses a pure Perl implementation that is slower than the default C-based one; for our REPL, this shouldn't be a problem.
+      $Data::Dumper::Useperl = 1;
+
+      use if $^O eq 'MSWin32', "Win32::Console::ANSI"; # !! Without this, ANSI codes don't work on Windows.
+      use Text::ParseWords;
+
+      use strict; # !! unlike in the main body, where user input gets executed, here in the BEGIN block we want all `use strict` features, including 'vars'.
+
+      my $__perli_prompt;
+
+      # -- output functions
+      # A note on colors: they must work on both light and dark backgrounds, which 
+      # is tricky to get right statically, so the colors are compromises; where needed
+      # the background color is set too; do not rely on more than the 8-color palette
+      # so as to be as portable as possible (e.g, the native Windows console windows do not support shades of grey).
+      sub __perli_sayColored { my ($fh, $color) = (shift, shift); my $msg = join(' ', @_); chomp $msg; printf $fh "%s%s%s\n", ({{noColor}} ? '' : "\e[${color}m"), $msg, ({{noColor}} ? '' : "\e[0m") };
+      sub __perli_sayStatus  { __perli_sayColored *STDOUT, 32, @_ };      # green
+      sub __perli_sayErr     { __perli_sayColored *STDERR, '97;41', @_ }; # red on whitish background
+      sub __perli_sayWarn    { __perli_sayColored *STDERR, 33, @_ };      # yellow
+      sub __perli_sayHelp    {                    print  STDOUT  __perli_helpText() }; # no color: gray cannot be used safely.
+      $SIG{__WARN__} = sub { __perli_sayWarn ((split / at .+? line/, $_[0])[0] . '.') }; # strip 'at <source> line ...' suffix
+      sub __perli_printPrompt { print $__perli_prompt if $__perli_prompt };
+      sub __perli_helpText {
+        <<'EOF';
+  - Type a single-line expression or statement(s); each line is its own scope.
+  - Use `$var = ...;`, not `my $var = ...;` for variables that should
+    live on after the line they're defined on (global variables).
+  - Results are automatically printed; if the result is a hash or array, and
+    you want to see it as such, assign to a variable and output with `\`; e.g.
+        %ht = (key1 => 'val1', key2 => 'val2'); \%ht;   
+  - Use `.remi ... =~ ...` to print additional regex-matching details:
+    Also prints $` ($PREMATCH), $& ($MATCH), $' ($POSTMATCH),
+    %- (%LAST_MATCH_START), @- (@LAST_MATCH_START), @+ (@LAST_MATCH_END); e.g.:
+        .remi "a barn." =~ /(?<foo>b(.)(.))n/
+  - To load modules or activate pragmas, use -M options on startup; e.g.:
+        perli -MString::Util=trim  
+    alternatively, load modules from inside the REPL; e.g.:
+        use String::Util qw(trim); trim ' a   b  '
+    or preload them in initialization file ~/.perli_rc.
+    Note: pragmas only take global effect as startup argument -M<pragma>
+  REPL commands (start with '.'):
+    .doc <search-string> or ? <search-string> or ... <search-string>? searches
+      the Perl docs.
+    .remi <regex-op> prints additional RegEx Matching Info; see above.
+    .sh <shell-cmd> executes a shell command using system(), with arguments
+      interpreted by the shell only; e.g.: .sh ls
+    .clear / .cls clears the screen; note: may not work in Cygwin and MSYS.
+    .exit / .quit exits the REPL (just 'exit' works too).
+    .man opens perli's own man page.
+    .home opens perli's homepage, {{homeUrl}}.
+    .help or ? prints these instructions.
+EOF
+      }
+      # -- utility functions
+      sub __perli_remi {
+        # Print actual result, as usual.
+        print Dumper @_;
+        # If present, print special regex variables reflecting the last successful match.
+        my $info;
+        for (qw/$` $& $' %- @- @+ /) {
+          next unless eval($_); # skip if undefined or empty
+          my $refSigilOpt = substr($_, 0, 1) eq '$' ? '' : '\\';
+          my $toSingleLine = substr($_, 0, 1) eq '@';
+          my $res = eval("Dumper $refSigilOpt$_");          
+          if ($toSingleLine) {
+            do { $res =~ tr/ \n/ /s; }; # convert to single-line; note the required do {} block around `=~ tr///` to prevent alteration of the automatic vars.
+            $res .= "\n";
+          }
+          $info .= "$_: $res";
+        }
+        if ($info) {
+          __perli_sayStatus "# --- Match info added by .remi:\n";
+          print $info;
+        } else {
+          __perli_sayWarn "No automatic regex-match variables were set.";
+        }
+      };
+      sub __perli_trim { (my $arg = $_[0]) =~ s/^\s+|\s+$//g; return $arg; };
+      sub __perli_toQuotedArgsString {
+        my ($cmd, $sep, $argQ, $qChar, $isWin);
+        $cmd = $sep = '';
+        $isWin = 1 if $^O eq 'MSWin32';
+        $qChar = $isWin ? q/"/ : q/'/; 
+        for (@_) {
+          $argQ = $_;
+          if ($isWin) {
+            $argQ =~ s#"#\\"#g; # escape embedded double-quotes for the shell (\-escaping of double-quotes is recognized by most programs, but not batch files)
+            # !! We assume that cmd.exe is NOT involved, so we do NOT double '%' signs.
+            # $argQ =~ s#%#%%#g;  # escape '%' instances by doubling them.
+          } else {  # Unix
+            $argQ =~ s#'#'\\''#g; # escape embedded single quotes for the shell
+          }
+          $cmd = $cmd . $sep . $qChar . $argQ . $qChar;
+          $sep = ' ' unless $sep;
+        }
+        return $cmd;
+      }      
+      my $havePerlDoc;
+      sub __perli_doc {  # fuzzy doc search
+        my $nullSink = ($^O eq 'MSWin32' ? 'NUL' : '/dev/null');
+        # On first invocation, see if the 'perldoc' utility is available at all...
+        if (! defined $havePerlDoc) {
+          `perldoc -V 2>$nullSink`;
+          $havePerlDoc = 1 if $? == 0;
+        }
+        # ... and return, if it isn't.
+        if (! $havePerlDoc) { warn "The perldoc utility cannot be located"; return; }
+        my $argStr = __perli_trim $_[0];
+        my ($qryQ, $found);
+        # See if the arguments strings starts with an option - except with '-X', which in fact refers to the file-test-operators "function" doc page.
+        my $optsSpecified = 1 if ($argStr =~ m/^-[[:alpha:]]+/ or $argStr =~ m/^-- ?/) and $argStr ne '-X';
+        if ($optsSpecified) { # options specified, pass the arguments through to perldoc
+          $qryQ = __perli_toQuotedArgsString shellwords($argStr);
+          system "perldoc $qryQ 2>$nullSink" or $found = 1;
+        } else {  # 'fuzzy' perldoc search - infer the type of information to lookup or try several types.
+          my ($isVar, @optsToTry);
+          # Trim trailing '///' and '//' and '/STRING/' instances that may be the result of tab-completion.
+          $argStr =~ s#^([^/]+)(?:///?|/STRING/)#$1#;
+          # See if term looks like a variable.
+          $isVar = 1 if $argStr =~ m/^[\$@%]/;
+          # Default to the doc home page.
+          $argStr ||= 'perl';
+          # Determine what lookup options to try in what order.
+          @optsToTry = $isVar ? ( '-v' ) : ( '-f', '', '-q' );
+          # Try lookups and stop once one succeeds.
+          $qryQ = __perli_toQuotedArgsString $argStr;
+          system("perldoc $_ $qryQ 2>$nullSink") or $found=1, last for (@optsToTry);
+        }
+        # Last-ditch effort: while newer perldoc versions automatically retry
+        # with a 'perl' suffix, so that specifying 'op' finds 'perlop', older
+        # versions do not. Thus, as a courtesy, we try the same thing manually.
+        if (! $found and ! $optsSpecified and $argStr !~ /^perl/ and $argStr =~ /^[[:alpha:]]+$/) {
+          system("perldoc $_ perl${argStr} 2>$nullSink") or $found=1;
+        } 
+        # Warn, if no lookup succeeded.
+        $found || warn "No documentation found for $qryQ\nNote that lookups are typically case-sensitive.\nSome Perl distros lack general docs (only support module-specific docs).\nWhen in doubt, use .sh perldoc ... explicitly";
+        return $found;
+      }
+      sub __perli_openurl { # open URL in default browser
+        my $url = shift, my $platform = $^O, my $cmd;
+        if    ($platform eq 'darwin')  { $cmd = "open \"$url\"";       }         # OS X
+        elsif ($platform eq 'MSWin32' or $platform eq 'msys') { $cmd = "start \"\" \"$url\""; }     # Windows / MSYS or Windows Git Bash
+        elsif ($platform eq 'cygwin')  { $cmd = "cmd.exe /c start \"\" \"$url\""; } # Cygwin
+        else { $cmd = "xdg-open \"$url\""; }  # assume a Freedesktop-compliant OS, which includes many Linux distros, PC-BSD, OpenSolaris, ...
+        if (system($cmd) != 0) {
+          die "Cannot locate or failed to open default browser; please open '$url' manually.\n";
+        }
+      }
+
+      # -- Load the initialization file, if specified.
+      my $initFile = '{{initFile}}';
+      if (-f $initFile) {
+        eval { require $initFile; } or warn "WARNING: $@";
+      }
+
+      # -- Print greeting.
+      __perli_sayStatus <<'EOF';
+# perli {{replVersion}}, using perl {{hostPerlVersion}} - ? shows help
+EOF
+
+      # Set the prompt string.
+      $__perli_prompt = '{{promptString}}';
+      
+      # Print initial prompt.
+      __perli_printPrompt;
+  
+      # Set $0 to reflect the REPL's binary.
+      $0 = '{{0}}';
+  
+    }       # end of BEGIN { ... }
+
+    # --- The code below is executed for every line of interactive input.
+    
+    # Remove trailing \n from input.
+    chomp;
+
+    # !! Below, we wrap all regex operations in do { } blocks, so as to avoid
+    # !! polluting the REPL with special regex variables values (reported, e.g.,
+    # !! via $&) from internal operations.
+
+    # Doc-lookup shortcuts: Translate ?<searchTerms> and ... <searchTerm>? shortcuts
+    # into `.doc <searchTerm>` commands.
+    if (my @terms = do { m/^[[:blank:]]*\?(.*)|(.*)\?$/ }) {
+      if ($terms[0]) { # '?...' syntax: use *all* tokens after the '?'
+        $_ = '.doc ' . $terms[0]; 
+      } elsif ($terms[1]) { # '...?'; syntax: use only the last token before the '?', to facilitate ad-hoc lookups while constructing an expression
+        my $term = (split ' ', $terms[1])[-1];
+        if ($term ne '$') { # only exception: if the last token is '$?' ($CHILD_ERROR), we do NOT consider it a lookup.
+          $_ = '.doc ' . $term;
+        }
+      } else { # same as: .help
+        $_ = '.help';
+      }
+    }
+
+    # Check for a REPL command starting with '.'
+    my ($handled, $printReMatchInfo);
+    if (my ($replCmd, $argStr) = do { m/^[[:blank:]]*\.([a-z]+)(?:[[:blank:]]+([^[:blank:]].*?[^[:blank:]]?)?[[:blank:]]*)?$/ }) { 
+      $argStr = '' unless defined $argStr;
+      $handled = 1;
+      if ($replCmd eq 'help' or $replCmd eq 'doc') {
+        $argStr ? __perli_doc($argStr) : __perli_sayHelp;
+      } elsif ($replCmd eq 'sh') {
+        if ($argStr) { # execute shell command as is
+          system $argStr;
+        } else { # launch interactive shell
+          system $^O eq 'MSWin32' ? 'cmd.exe /K' : '/bin/sh';
+        }
+      } elsif ($replCmd eq 'remi') {
+          do { $argStr =~ s/;+$//; }; # strip trailing ; - note that .remi doesn't support multiple statements in general.        
+          if ($argStr) {
+            $handled = 0, $printReMatchInfo = 1;
+            $_ = $argStr; # evaluate below            
+          } else {
+            __perli_sayErr ".$replCmd requires a regex-matching operation as its argument.";
+          }
+      } else { # other commands that expect NO arguments
+        if ($replCmd eq 'clear' or $replCmd eq 'cls') {
+          system $^O eq 'MSWin32' ? 'cls' : 'clear';
+        } elsif ($replCmd eq 'exit' or $replCmd eq 'quit') {
+          exit;
+        } elsif ($replCmd eq 'home') {
+          __perli_openurl '{{homeUrl}}';
+        } elsif ($replCmd eq 'man') {
+          system $^O eq 'MSWin32' ? "perl.exe \"$0\" --man" : "'$0' --man";
+        } else {
+          __perli_sayErr "Unknown REPL command: .$replCmd";
+          $? = 2;
+        }
+        if ($argStr) { warn "Unexpected REPL command argument(s): $argStr"; }
+      }
+    } 
+    if (! $handled) { # a Perl command, evaluate and print it.
+      if ($printReMatchInfo) {
+        s/;+\s*$//; # strip trailing ';'
+        # !! We must invoke as __perli_remi() (with parentheses), so that expressions such 
+        # !! as `($tmp = "abc") =~ s/a/b/` don't cause 'Can't modify non-lvalue subroutine call in substitution (s///)' errors.
+        # !! Also note that prm() must be called INSIDE eval(), as it would otherwise not gain access to the special regex variables.
+        # !! The problem is that the only way to preserve the result of the eval() is to pass it to Dumper() directly,
+        # !! as there is no way I know of that would allow generic saving of eval()'s result; while it's doable to copy the 
+        # !! special regex vars. inside the eval string for later outside access, this act of copying invariably
+        # !! alters the result of the eval().
+        eval '__perli_remi(' . $_ . ')';
+        # !! The above may still fail if the expression entered is composed of MULTIPLE ;-separated expressions.
+      } else {  # Default case: eval and print line as-is.
+        print Dumper eval();
+      }
+      if ($@){ # if an error occurred, report it.
+        __perli_sayErr ((split / at .+? line/, $@)[0] . '.');
+      }
+    }
+    __perli_printPrompt;
+
+EOF_REPL
+
+  # Determine the prompt string.
+  # NOTE:  Underlining doesn't work consistently with `rlwrap` (and doesn't look good).
+  #        Picking a specific color is problematic, but we print the prompt bolded, which
+  #        results in different colors on different systems, curiously.
+my $noColor = $ENV{PERLI_NOCOLOR} || 0;
+my $prompt = $ENV{PERLI_PS1} || sprintf '%s%s%s', ($noColor ? '' : "\e[1m"), "${kTHIS_NAME}> ", ($noColor ? '' : "\e[0m");
+$prompt =~ s/'/\\'/g; # escape ' chars, if any
+
+# Determine the Perl binary to invoke for the REPL.
+# By default, we use 'perl', which implies the same version that was used
+# to run *this* script.
+# Env. variable PERLI_PERLBIN allows specifying a different binary.
+my $perlBin = $ENV{PERLI_PERLBIN} ? $ENV{PERLI_PERLBIN} : 'perl';
+
+# Determine the path of the initialization file.
+my $initFile = $ENV{PERLI_RCFILE} ? $ENV{PERLI_RCFILE} : glob '~/.perli_rc'; # Note: Fortunately, using '~' also works on Windows.
+
+# Determine the *version* of the Perl of the REPL.
+# We need this to instantiate the use v...; statement in the REPL source code
+# for enabling all optional features for the target version.
+my $replPerlVersion;
+if ($perlBin eq 'perl') { # Use same Perl as the one running *this* script.
+  $replPerlVersion = sprintf 'v%vd', $^V; # requires 5.6+
+} else {                  # alternative binary specified
+  # Invoke the specified Perl binary to query its version number.
+  # Note the use of double-quotes in the command substitution to make Windows happy.
+  $replPerlVersion = `"$perlBin" -e "printf 'v%vd', \$^V"`;
+  die "$kTHIS_NAME: ERROR: Perl binary '$perlBin' not found, or failed to obtain its version number.\n" unless $replPerlVersion;
+}
+
+# Instantiate the placeholders in the REPL source code.
+
+$replScriptText =~ s/\Q{{0}}\E/$0/ or die; # set $0 inside the REPL to *this* script's path
+  # Note: To be safe, we use /g on all substitutions, as at least some of the
+  #       placeholders are used multiple times.
+# $replScriptText =~ s/\Q{{replName}}\E/$kTHIS_NAME/g or die;
+$replScriptText =~ s/\Q{{replVersion}}\E/$kTHIS_VERSION/g or die;
+  # The host Perl version: this is used to instantiate the enable-all-optional features `use` statement.
+  # Note: We use $^V, which requires 5.6+, which we've ensured at the top of this script.
+my $perlVersion = sprintf 'v%vd', $^V; # '' . $];
+$replScriptText =~ s/\Q{{hostPerlVersion}}\E/$replPerlVersion/g or die;
+$replScriptText =~ s/\Q{{initFile}}\E/$dontLoadInitFile ? '' : $initFile/e or die;
+$replScriptText =~ s/\Q{{homeUrl}}\E/$kTHIS_HOME/g or die;
+$replScriptText =~ s/\Q{{promptString}}\E/$prompt/ or die;
+$replScriptText =~ s/\Q{{noColor}}\E/$noColor/g or die;
+
+# Write REPL script to temp. file.
+my ($fh, $tempScriptFile) = tempfile(UNLINK => 1) or die;
+print $fh $replScriptText or die;
+$fh->flush or die; # Perl normally auto-flushes before invoking exec or system, but just to be safe.
+
+# For simple TAB-COMPLETION, create a temp. file with all Perl functions and some keywords
+my $tempCompletionFile;
+if ($useRlWrap) {
+  ($fh, $tempCompletionFile) = tempfile(UNLINK => 1) or die;
+  # binmode $fh, ':utf8';
+  # Try to obtain all function names with Pod::Functions.
+  my $funcNames;
+  # !! Apparently, even though it is a core module, not all distributions have it; e.g.: Git Bash (MinGW-based) on Windows.
+  if (eval { require Pod::Functions; 1 }) {
+    no warnings 'once';
+    $funcNames = join ' ', keys %Pod::Functions::Type;
+  } else { # fallback: use static list; generated in v5.18.2
+    $funcNames = 'undef getlogin qr/STRING/ socketpair tied setprotoent qx/STRING/ endnetent prototype getpriority redo push caller close truncate send localtime chop substr getgrnam ord shmget getc cos map semctl setgrent ucfirst getpwuid crypt dbmclose setpriority our getsockopt glob msgrcv kill qq/STRING/ exec index wait no sprintf gethostbyaddr __LINE__ fcntl sleep oct exists goto sysseek chdir telldir tell getnetent warn getgrgid shift endprotoent rename srand package printf chown getprotoent accept chroot link sysread local tr/// endgrent die getprotobyname flock dbmopen break join getgrent getppid time utime mkdir untie listen getnetbyaddr chr getservent require system values print readdir pos gmtime rindex getservbyname rmdir q/STRING/ say endpwent vec semop next lstat shmctl pipe endservent readlink use binmode setsockopt umask getpwent split shmwrite y/// getpeername sethostent shmread socket seekdir connect endhostent length open bind int formline sqrt recv opendir last tie reverse times abs study gethostent sort msgsnd closedir symlink log fc getsockname import ioctl exp state grep lcfirst __PACKAGE__ lock __FILE__ waitpid format alarm msgget sysopen sin gethostbyname atan2 syscall readline getpwnam chmod continue s/// hex ref getservbyport getpgrp syswrite chomp keys do unpack fileno uc each seek __SUB__ setpwent fork delete select eval bless dump write m// reset getnetbyname read rewinddir unshift stat getprotobynumber sub setservent qw/STRING/ lc wantarray rand shutdown setpgrp splice return exit readpipe setnetent pop evalbytes pack msgctl unlink -X semget my quotemeta eof defined scalar';
+  }
+  print $fh $funcNames or die;
+  # Add additional tab completion words:
+  #  line 2: flow-control keywords (compound statements)
+  #  line 3: non-symbolic operators
+  #  line 4: Special variables, as *statically copied from the docs for v5.18* (perlvar): 
+  #      copied entire page http://perldoc.perl.org/5.22.0/perlvar.html as plain text, saved to pv.txt, and processed with the following command:
+  #      awk '/^(\$|@)[^ ]+$/  {print $1 } ' pv.txt | tr '\n' ' ' | tc
+  #      !! Putting special variable such as $_, $^O, ... on the list is virtually pointless, because rlwrap doesn't consider $ part of the token
+  #      !! to complete and thus offers unrelated matches.
+  #      !! For user-defined variables, rlwrap's --remember option provides *some* measure
+  #      !! of variable completion
+  #  line 5: our REPL commands:
+  #      !! MUST BE KEPT IN SYNC WITH ACTUAL COMMANDS IMPLEMENTED IN THE REPL SCRIPT.
+  #      !! Note: To work with rlwrap's default completion, we must omit the initial '.'
+  #  !!!!!!!!!!!!!!!
+  #  rlwrap's default tab completion is geared toward CLIs, so it's not aware
+  #  of syntax elements such as sigils ($ vs. % ...) or our own REPL-command sigil (.).
+  #  The result is that there are no completion CONTEXTS and ALL tokens are offered
+  #  in all situations, which buries the true completion candidates in a lot of noise.
+  #  The only proper solution would be to write a custom rlwrap filter (which happen to be Perl-based).
+  #  !!!!!!!!!!!!!!!
+  print $fh <<'EOF' or die;
+for foreach if while until given when
+not and or xor
+$ARG $_ @ARG @_ $LIST_SEPARATOR $" $PROCESS_ID $PID $$ $PROGRAM_NAME $0 $REAL_GROUP_ID $GID $( $EFFECTIVE_GROUP_ID $EGID $) $REAL_USER_ID $UID $< $EFFECTIVE_USER_ID $EUID $> $SUBSCRIPT_SEPARATOR $SUBSEP $; $a $b $OLD_PERL_VERSION $] $SYSTEM_FD_MAX $^F @F @INC $INPLACE_EDIT $^I $^M $OSNAME $^O $BASETIME $^T $PERL_VERSION $^V ${^WIN32_SLOPPY_STAT} $EXECUTABLE_NAME $^X $MATCH $& ${^MATCH} $PREMATCH $` ${^PREMATCH} $POSTMATCH $' ${^POSTMATCH} $LAST_PAREN_MATCH $+ $LAST_SUBMATCH_RESULT $^N @LAST_MATCH_END @+ @LAST_MATCH_START @- $LAST_REGEXP_CODE_RESULT $^R ${^RE_DEBUG_FLAGS} ${^RE_TRIE_MAXBUF} $ARGV @ARGV $OUTPUT_FIELD_SEPARATOR $OFS $, $INPUT_LINE_NUMBER $NR $. $INPUT_RECORD_SEPARATOR $RS $/ $OUTPUT_RECORD_SEPARATOR $ORS $\ $OUTPUT_AUTOFLUSH $| ${^LAST_FH} $ACCUMULATOR $^A $FORMAT_FORMFEED $^L $FORMAT_PAGE_NUMBER $% $FORMAT_LINES_LEFT $- $FORMAT_LINE_BREAK_CHARACTERS $: $FORMAT_LINES_PER_PAGE $= $FORMAT_TOP_NAME $^ $FORMAT_NAME $~ ${^CHILD_ERROR_NATIVE} $EXTENDED_OS_ERROR $^E $EXCEPTIONS_BEING_CAUGHT $^S $WARNING $^W ${^WARNING_BITS} $OS_ERROR $ERRNO $! $CHILD_ERROR $? $EVAL_ERROR $@ $COMPILING $^C $DEBUGGING $^D ${^ENCODING} ${^GLOBAL_PHASE} $^H ${^OPEN} $PERLDB $^P ${^TAINT} ${^UNICODE} ${^UTF8CACHE} ${^UTF8LOCALE}
+clear cls doc exit help home man quit remi sh
+EOF
+  $fh->flush or die; # Perl normally auto-flushes before invoking exec or system, but just to be safe.
+}
+
+# Synthesize the LIST OF ARGUMENTS TO PASS TO PERL.
+# Hard-coded options - a [x] means that we allow overriding by the user via command-line arguments:
+#   -n ... read stdin lines one by one (the REPL loop)
+#   [x] -w ... issue useful warnings (will also apply to the interactively typed code)
+#   -C ... user Unicode strings internally, and encode/decode streams and files based on the active locale.
+#   -Mutf8 ... treat the source code as UTF8 (though for the code typed by the user it is -C that matters)
+#   -MEnglish ... enable natural-language aliases for Perl's special variables (e.g., $MATCH for $&)
+#                 !! While in theory we would like user to be able to deactivate this, it doesn't work *technically*
+#                 - once -MEnglish is present, a subsequent -M-English or even a no English; doesn't deactivate it (verified on v5.18 and v5.22)
+#   -M-strict=vars ... same as: `no strict "vars"` - allows defining global vars as `$foo = ...`, which is not only more convenient than typing `my $foo = ...`
+#                      but is actually needed for REPL-session-global variables.
+#  [x] -M$replPerlVersion effectively enables all optional features for the host Perl version, such as `say` in versions >= v5.10.
+# Finally, append user-specified arguments to pass through (note that Windows requires " (a double-quote) as the quote char.)
+my $delim = $^O eq 'MSWin32' ? '"' : "'";
+my $perlArgs = " -n -w -C -Mutf8 -MEnglish -M-strict=vars -M$replPerlVersion " . join(' ', map { $delim . $_ . $delim } @passthruArgs);
+
+
+# Invoke Perl wih the REPL code:
+if ($useRlWrap) {          # Unix system with rlwrap.
+    # -A makes rlwrap ANSI-color-aware.
+    # --command-name <name> determines the filename prefixes for the history file (*_history) (and completion file (*_completions), but we use a temp. file and override that with -f).
+    #   Without this option, the tue program (executable) name would be used, which would be 'perl' in our case.
+    # --remember uses previously seen tokens in a given session for tab-completion
+    #   !! Note that that includes *output* tokens too (both output from typed commands and from .help, for instance), which can 
+    #   !! quickly add noise to the tab-completion feature.
+    # Note: Even though rlwrap offers -S to specify a prompt string, we always
+    #       print our own, as rlwrap -S <prompt-string> would overwrite any
+    #       child process prompts, such as when `.sh` is used to open a shell
+    #       temporarily.
+    exec "rlwrap -A --command-name '$kTHIS_NAME' --remember -f '$tempCompletionFile' \"$perlBin\" $perlArgs '$tempScriptFile'" or die;  
+} else {
+  if ($^O eq 'MSWin32') { # Windows
+    # !! Note that exec() doesn't work as expected on Windows (Perl is seemingly launched in the background), so we use system() instead.
+    system "\"$perlBin\" $perlArgs \"$tempScriptFile\""; die if $? == -1;
+  } else {                # Unix system with NO rlwrap.
+    exec   "\"$perlBin\" $perlArgs '$tempScriptFile'" or die;
+  }
+}
+
+exit 0;
+
+
+
+# SYNOPSIS
+#   openurl <url>
+# DESCRIPTION
+#   Opens the specified URL in the system's default browser.
+# COMPATIBILITY
+#   OSX, Windows (including MSYS, Git Bash, and Cygwin), Freedesktop-compliant
+#   OSs, which includes many Linux distros (e.g., Ubuntu), PC-BSD, OpenSolaris...
+#   CYGWIN CAVEAT: if a URL contains something that looks like a shell
+#     variable reference to an *existing* variable (e.g., %PATH%), the
+#     value is inadvertently expanded; fortunately, that should rarely
+#     happen in the real world.
+# NOTES
+#   To bypass variations in ad-hoc encoding across platforms, it is safer to
+#   pass an already HTML-encoded URL (where, e.g., spaces are already encoded as '%20').
+#   Gratefully adapted from http://stackoverflow.com/a/8869676/45375.
+sub openurl {
+  my $url = shift;
+  my $platform = $^O;
+  my $cmd;
+  if    ($platform eq 'darwin')  { $cmd = "open \"$url\"";       }         # OS X
+  elsif ($platform eq 'MSWin32' or $platform eq 'msys') { $cmd = "start \"\" \"$url\""; }     # Windows native or Windows MSYS / Git Bash
+    # !! Cygwin: Bizarrely, the only way to get cmd.exe to treat the URL as a 
+    # !! literal (almost), is to *append a space*, which, fortunately, is ultimately 
+    # !! ignored by browsers. The only edge case where interpretation still happens
+    # !! is if the URL contains  syntactically valid reference to an *existing*
+    # !! environment variable; e.g., %PATH%.
+    # !! The following test URL demonstrates that all other special chars.
+    # !! are handled correctly:
+    # !!  http://example.org/test?foo^hat%20after%PATH1%&more=stuff(42<46)|@notsofast!
+  elsif ($platform eq 'cygwin')  { $cmd = "cmd.exe /c start \"\" \"$url \""; } # Cygwin; !! note the required trailing space
+  else { $cmd = "xdg-open \"$url\""; }  # assume a Freedesktop-compliant OS, which includes many Linux distros, PC-BSD, OpenSolaris, ...
+  if (system($cmd) != 0) {
+    die "Cannot locate or failed to open default browser; please go to '$url' manually.\n";
+  }
+}
+
+####
+# MAN PAGE MARKDOWN SOURCE
+#  - Place a Markdown-formatted version of the man page for this script
+#    below the `__DATA__` line below.
+#  - Do not alter the `__DATA__` line in any way.
+#  - The entire rest of this script
+#    is assumed to be the Markdown document.
+#  - The document must be formatted to look good in all 3 viewing scenarios:
+#     - as a man page, after conversion to ROFF with marked-man
+#     - as plain text (raw Markdown source)
+#     - as HTML (rendered Markdown)
+#  Markdown formatting guidelines:
+#   - GENERAL
+#     To support plain-text rendering in the terminal, limit all lines to 80 chars.,
+#     and, for similar rendering as HTML, *end every line with 2 trailing spaces*.
+#   - HEADINGS
+#     - For better plain-text rendering, leave an empty line after a heading
+#       marked-man will remove it from the ROFF version.
+#     - The first heading must be a level-1 heading containing the utility
+#       name and very brief description; append the manual-section number 
+#       directly to the CLI name; e.g.:
+#         # foo(1) - does bar
+#     - The 2nd, level-2 heading must be '## SYNOPSIS' and the chapter's body
+#       must render reasonably as plain text, because it is printed to stdout
+#       when  `-h`, `--help` is specified:
+#         Use 4-space indentation without markup for both the syntax line and the
+#         block of brief option descriptions; represent option-arguments and operands
+#         in angle brackets; e.g., '<foo>'
+#     - All other headings should be level-2 headings in ALL-CAPS.
+#   - TEXT
+#      - Use NO indentation for regular chapter text; if you do, it will 
+#        be indented further than list items.
+#      - Use 4-space indentation, as usual, for code blocks.
+#      - Markup character-styling markup translates to ROFF rendering as follows:
+#         `...` and **...** render as bolded (red) text
+#         _..._ and *...* render as word-individually underlined text
+#   - LISTS
+#      - Indent list items by 2 spaces for better plain-text viewing, but note
+#        that the ROFF generated by marked-man still renders them unindented.
+#      - End every list item (bullet point) itself with 2 trailing spaces too so
+#        that it renders on its own line.
+#      - Avoid associating more than 1 paragraph with a list item, if possible,
+#        because it requires the following trick, which hampers plain-text readability:
+#        Use '&nbsp;<space><space>' in lieu of an empty line.
+####
+__DATA__
+# perli(1) - a simple, convenient Perl REPL
+
+## SYNOPSIS
+
+A simple, convenient Perl REPL for interactive experimentation.
+
+    perli [<options>]
+
+    --norc      skips loading of the initialization file
+
+    The following Perl options are also supported:
+
+    -M<name>    (repeatable) load a module and import its defaults,  
+                             or activate a pragma (-M-<name> deactivates)
+    -m<module>  (repeatable) load a module without importing
+    -I<dir>     (repeatable) prepend <dir> to module search path (@INC)
+
+Initialization file is `~/.perli_rc`
+
+Standard options: `--help`, `--man`, `--version`, `--home`
+
+## DESCRIPTION
+
+`perli` is a Perl REPL (read-eval-print loop) for interactive  
+experimentation with Perl code, convenient documentation lookups,  
+and quick computations.
+
+On Unix-like platforms, installation of `rlwrap` is highly recommended; see
+`PLATFORM NOTES` below.
+
+Interactive input is executed line by line, and results are automatically  
+printed.
+
+Once you've entered the REPL (invoked `perli`), submit `?` for an  
+overview of its features and commands.
+
+An optional initialization file may be maintained at `~/.perli_rc`.
+
+## INITIALIZATION FILE
+
+To preload modules into the REPL, you may maintain an optional  
+initialization file with Perl code at `~/.perli_rc`, which is loaded  
+automatically on startup.
+
+*Caveat*: The scope of `use <pragma>` statements is limited to the  
+initialization file itself;  
+if you want a pragma such as `use integer` to be in effect for the REPL,  
+you must specify it on the command line with `-M<pragma>`.
+
+The file need not be a module, and nothing needs to be exported;  
+simply load modules / declare subroutines for the REPL in the global  
+namespace.
+
+The last statement in the file is expected to return a truthy value;  
+otherwise, a warning is issued.
+
+## REPL FUNDAMENTALS AND LIMITATIONS
+
+A concise summary of most of the topics discussed below can be displayed from
+inside `perli` by submitting `?`.
+
+### Perl features in effect by default
+
+The active locale's **character encoding** is respected (with strings internally
+represented as Unicode and automatic translation to and from the locale's 
+encoding for streams and files, as if `perl -C` had been run).
+Also see `LOCALE SUPPORT` below.
+
+All **optional features** of the host Perl version are enabled (as if `perl -E`
+had been run). For instance, the `say` feature is in effect in host Perl
+versions >= 5.9.5.  
+To deactivate all features, start `perli` with `perli -M-feature=:all`.  
+To activate a given version's feature bundle, start `perli` with something like  
+`perli -Mv5.10`.
+
+Useful **warnings** are enabled by default (as if `perl -w` had been run).  
+To enable ALL warnings, start `perli` with `perli -W`.  
+To SUPPRESS all warnings, start `perli` with `perli -X`.
+
+`use English;` is in effect to enable the natural-language aliases for Perl's
+special variables; e.g., `$MATCH` for `$&`.
+
+### Input
+
+Only *single-line* input is supported, and each line submitted is its own
+scope; this has the following implications:
+
+  * Pragmas such as `use locale;` only take effect for the line at hand;  
+    for pragmas to take effect globally, you must specify them on the  
+    command line when starting `perli`; e.g., `perli -Mlocale`.
+
+  * Variables declared with `my` only exist on the line they're defined on;
+    omit the `my` to create global variables, which stay in scope for the  
+    remainder of the REPL session.
+
+To complement direct input of Perl code, special REPL commands - commmands
+provided by `perli` itself - are availabe, all of which start with `.` and
+must be the only statement on the line.
+`?` is an alias for `.help` or `.doc`
+
+Submit `?` from inside `perli` to see all REPL commands; only a select few are
+highlighted here.
+
+#### Documentation lookups
+
+`perli` supports Perl documentation lookups using either of the following 
+two forms:
+
+  * `? [<perldoc-opt>] <search-term>`
+  * `... <search-term>?`
+
+The first form is the stand-alone form that also allows explicit passing of
+options to `perldoc`.
+
+The second form is handy for quick lookup of a term as you're typing a line of
+Perl code.
+
+In the first form without `[<perldoc-opt>]`, and invariably in the second form,
+the lookup is "fuzzy" for convenience, i.e., `perli` tries to guess the type of
+element being searched for, and automatically passes the appropriate perldoc
+option (`-f` for function, ...) behind the scenes. `perli` may try several
+options in sequence until a lookup succeeds.
+
+If the lookup ultimately fails, or `perli` guessed the wrong type, use the first
+form and pass `perldoc` options explicitly; e.g.: `? -q while` explicitly
+searches the FAQs for the word `while` instead of looking up the flow-control
+keyword.
+
+As with `perldoc`, topics may be looked up without the `perl` prefix; e.g.,
+`? run` is a shortcut for `? perlrun`.
+
+#### Regex-match inspection
+
+`.remi ... =~ ...` facilitates inspection of regular-expression matches by
+automatically printing the automatic variables that Perl defines for the most
+recent successful match.
+
+Note that only a single expression involving `=~` is supported; e.g.:
+
+    .remi "a barn." =~ /(?<foo>b(.)(.))n/
+
+Following the expression's own result, the values of the following special
+variables are printed (`use English;` aliases in parentheses):
+
+    $` ($PREMATCH), $& ($MATCH), $' ($POSTMATCH),
+    %- (%LAST_MATCH_START), @- (@LAST_MATCH_START), @+ (@LAST_MATCH_END)
+
+To reduce noise, only non-empty values are printed.
+
+Note that `%-` is only printed if *named* capture groups are present, and that
+the related `%+` (`%LAST_PAREN_MATCH`) is never printed, because its information
+is effectively contained in the value of `%-`.
+
+As a reminder, a regex operation's result is a Boolean, if the regex contains
+no capture groups at all, and the list of capture group values otherwise -
+whether from named or unnamed groups.
+
+### Output printing and formatting
+
+Evaluation results are automatically printed, using the core `Data::Dumper`
+module, which presents results in a way that allows its reuse as input and
+shows the structure of the result.
+
+To best represent arrays and hashes, store them in a variable first and prefix
+the variabe with `\` (so as to hand a *reference* to `Data::Dumper`); try
+`\%ENV`, for instance.
+
+To print a result as-is instead, use an explicit output command, such as
+`print`, `printf` or `say`, but note that the automatic result-printing
+mechanism still applies and then appends `1`, which is the return value from
+these output statements. Explicit output commands are also needed if locale
+support is activated and numbers should be formatted accordingly - see
+`LOCALE SUPPORT` below.
+
+Warnings and error messages are printed in different colors so as to stand out.
+However, you can disable coloring altogether with the `PERLI_NOCOLOR`
+enviroment variable - see `ENVIRONMENT VARIABLES` below.
+
+### Tab completion
+
+If `rlwrap` is available (see `PLATFORM NOTES` below), tab-completion
+is available, but it lacks context-awareness so that ALL tokens are offered
+in any context, which can be confusing.  
+For instance, typing `$<tab>` does NOT limit the completion candidates to just
+variable names, unfortunately.
+(Conceivably, this could be remedied in a future `perli` release, using
+`rlwrap`'s custom tab-completion feature.)
+
+The following elements are added to the pool of tab-completion tokens:
+
+* Perl functions, operators, compound statements
+* Perl's special variables
+* `perli`'s own REPL commands
+* any token typed or output during a REPL session
+
+Note: The latter facilitates reusing previously typed tokens such as custom
+variables, but, due to indiscriminately adding tokens both from the input and
+output of commands, can also introduce noise.
+
+Generally, typing at least a few characters reduces the set of candidates,
+and repeatedly pressing the Tab key cycles through them.
+
+### Command history
+
+If `rlwrap` is available (see `PLATFORM NOTES` below), a persistent command
+history is maintained in file `~/.perli_history`
+
+## LOCALE SUPPORT
+
+Your system's active locale is only respected in terms of *character
+encoding*;
+NO other aspects of the locale, notably number formatting, are explicitly
+activated, deferring to the host Perl's default behavior.
+
+Perl's default behavior is NOT to support the active locale so as to maintain
+backward compatibility.
+Locale support - once activated with  `use locale;` - is patchy in older Perl
+versions and the behavior changed over time; UTF-8-based locales further
+complicate things - see `perldoc perllocale` or visit  
+http://perldoc.perl.org/perllocale.html
+
+To activate locale support in `perli`, start with `perli -Mlocale`.
+
+Note, however, that the *automatically* printed numeric results do NOT
+reflect Perl's effective LC_NUMERIC locale category; use explicit `print`,
+`printf`, or `say` statements instead, but note that the automatic
+result-printing mechanism still applies and then appends `1`, which is the
+return value from these output statements.
+
+Note that, as of this writing, the MSYS Unix-emulation enviroment for Windows
+and products based on it (such as Git Bash) do not support locales at all (the
+'C' locale is invariably in effect).
+
+## ENVIRONMENT VARIABLES
+
+  * `PERLI_PERLBIN`  
+    Allows overriding the `perl` executable that is used to run the REPL.  
+    By default, the (first) `perl` executable in the system's path is used.
+
+  * `PERLI_PS1`  
+    If specified, overrides the default prompt. Specify the string  
+    including a space to put between the prompt proper and the start  
+    of the user input, if desired.  
+    Note that if you want the prompt to be colored, the value has to  
+    include the relevant ANSI color escape sequences. 
+
+  * `PERLI_NOCOLOR`  
+    If set to `1`, turns off all colored output.
+
+## PLATFORM NOTES
+
+On Unix platforms, `perli` makes use of the `rlwrap` utility, if present,  
+to provide command-line editing support, persistent command history,  
+and simple tab completion.
+
+Installing `rlwrap` is highly recommended, and in its absence a warning  
+with download instructions is given.
+
+On Windows, `rlwrap` is not available, unfortunately, but you do get  
+in-session history and basic command-line editing out of the box.
+
+## LICENSE
+
+For license information and more, visit the home page by running  
+`perli --home`, or, from within the REPL, `.home`.
+
+## STANDARD OPTIONS
+
+All standard options provide information only.
+
+  * `-h, --help`  
+    Prints the contents of the synopsis chapter to stdout for quick  
+    reference.
+
+  * `--man`  
+    Displays this manual page, which is a helpful alternative to using  
+    `man`, if the manual page isn't installed, such as on Windows.
+
+  * `--version`  
+    Prints version information.
+    
+  * `--home`  
+    Opens this utility's home page in the system's default web browser.

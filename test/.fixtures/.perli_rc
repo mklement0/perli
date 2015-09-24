@@ -1,0 +1,8 @@
+
+# Load a module.
+use File::Basename;
+
+# Define a variable.
+$foo = 'bar';
+
+1;

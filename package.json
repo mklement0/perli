@@ -1,0 +1,52 @@
+{
+  "name": "perli",
+  "description": "simple Perl REPL",
+  "private": false,
+  "version": "0.0.0",
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "preferGlobal": true,
+  "bin": {
+    "perli": "bin/perli"
+  },
+  "man": "./man/perli.1",
+  "homepage": "https://github.com/mklement0/perli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mklement0/perli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mklement0/perli/issues"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "keywords": [
+    "perl",
+    "repl",
+    "eval",
+    "experiment",
+    "interactive"
+  ],
+  "author": "Michael Klement <mklement0@gmail.com> (http://same2u.net)",
+  "license": "MIT",
+  "net_same2u": {
+    "make_pkg": {
+      "tocOn": true,
+      "tocTitle": "**Contents**",
+      "manOn": true
+    }
+  },
+  "devDependencies": {
+    "doctoc": "^0.13.0",
+    "json": "^9.0.3",
+    "marked-man": "^0.1.5",
+    "replace": "^0.3.0",
+    "semver": "^4.2.0",
+    "tap": "^1.4.1",
+    "urchin": "^0.0.5"
+  }
+}

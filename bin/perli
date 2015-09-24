@@ -19,7 +19,7 @@ use if $^O eq 'MSWin32', 'Win32::Console::ANSI'; # !! Without this, ANSI codes d
 
 my $kTHIS_NAME = basename $0;
 my $kTHIS_HOME = 'https://github.com/mklement0/perli';
-my $kTHIS_VERSION = 'v0.1.0'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
+my $kTHIS_VERSION = 'v0.1.1'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
 
 # Debugging support: define p() for printing values diagnostically.
 use Data::Dumper; $Data::Dumper::Terse = 1; sub p { print Dumper(@_); };

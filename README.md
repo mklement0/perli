@@ -1,7 +1,4 @@
-![status: NOT READY FOR RELEASE](https://img.shields.io/badge/status-not_ready_for_release-red.svg)
-
-<!-- [![npm version](https://img.shields.io/npm/v/perli.svg)](https://npmjs.com/package/perli) [![license](https://img.shields.io/npm/l/perli.svg)](https://github.com/mklement0/perli/blob/master/LICENSE.md)
- -->
+[![npm version](https://img.shields.io/npm/v/perli.svg)](https://npmjs.com/package/perli) [![license](https://img.shields.io/npm/l/perli.svg)](https://github.com/mklement0/perli/blob/master/LICENSE.md)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -246,6 +243,9 @@ This project gratefully depends on the following open-source components, accordi
 Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
+
+* **[v0.1.1](https://github.com/mklement0/perli/compare/v0.1.0...v0.1.1)** (2015-09-24):
+  * Project-status corrected in read-me.
 
 * **v0.1.0** (2015-09-24):
   * Initial release.

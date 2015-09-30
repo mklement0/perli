@@ -19,7 +19,7 @@ use if $^O eq 'MSWin32', 'Win32::Console::ANSI'; # !! Without this, ANSI codes d
 
 my $kTHIS_NAME = basename $0;
 my $kTHIS_HOME = 'https://github.com/mklement0/perli';
-my $kTHIS_VERSION = 'v0.1.1'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
+my $kTHIS_VERSION = 'v0.1.2'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
 
 # Debugging support: define p() for printing values diagnostically.
 use Data::Dumper; $Data::Dumper::Terse = 1; sub p { print Dumper(@_); };
@@ -141,7 +141,7 @@ my $replScriptText = <<'EOF_REPL';
       use if $^O eq 'MSWin32', "Win32::Console::ANSI"; # !! Without this, ANSI codes don't work on Windows.
       use Text::ParseWords;
 
-      use strict; # !! unlike in the main body, where user input gets executed, here in the BEGIN block we want all `use strict` features, including 'vars'.
+      use strict; # !! unlike in the main body, where user input gets executed, here in the BEGIN block we want ALL `use strict` features, including 'vars'.
 
       my $__perli_prompt;
 
@@ -306,8 +306,17 @@ EOF
   
     }       # end of BEGIN { ... }
 
-    # --- The code below is executed for every line of interactive input.
+    # --- 
+    # The code below is executed for every line of interactive input.
+    # ---
     
+    # Allow defining global vars as `$foo = ...`, which is not only more convenient than typing `my $foo = ...`
+    # but is actually needed for session-global variables in our REPL.
+    # Without this, we'd get "Global symbol $v requires explicit package name." errors.
+    # Note that `use strict;` is implicitly on when using `use <Perl-version>` - which we do with the host Perl version from the -
+    # command line with M<version> - for versions >= 5.12.
+    no strict 'vars'; # !! Sadly, the command-line alternative `-M-strict=vars` does NOT work on older versions such as v5.14.
+
     # Remove trailing \n from input.
     chomp;
 
@@ -495,12 +504,13 @@ EOF
 #                 !! While in theory we would like user to be able to deactivate this, it doesn't work *technically*
 #                 - once -MEnglish is present, a subsequent -M-English or even a no English; doesn't deactivate it (verified on v5.18 and v5.22)
 #   -MMath::Trig ... enable trigonometric functions and the `pi` constant
-#   -M-strict=vars ... same as: `no strict "vars"` - allows defining global vars as `$foo = ...`, which is not only more convenient than typing `my $foo = ...`
-#                      but is actually needed for REPL-session-global variables.
+#   # !! Older Perl versions - e.g. v5.14 - seemingly don't support the -M-<pragma>=<argument> syntax, so we must 
+#   # !! instead use `no strict 'vars';` explicitly inside the REPL, so as to allow global variable definitions.
+#   # -M-strict=vars ... same as: `no strict "vars"`, but works only on more recent Perl versions, such as v5.18.2.
 #  [x] -M$replPerlVersion effectively enables all optional features for the host Perl version, such as `say` in versions >= v5.10.
 # Finally, append user-specified arguments to pass through (note that Windows requires " (a double-quote) as the quote char.)
 my $delim = $^O eq 'MSWin32' ? '"' : "'";
-my $perlArgs = " -n -w -C -Mutf8 -MEnglish -MMath::Trig -M-strict=vars -M$replPerlVersion " . join(' ', map { $delim . $_ . $delim } @passthruArgs);
+my $perlArgs = " -n -w -C -Mutf8 -MEnglish -MMath::Trig -M$replPerlVersion " . join(' ', map { $delim . $_ . $delim } @passthruArgs);
 
 
 # Invoke Perl wih the REPL code:

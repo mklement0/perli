@@ -5,7 +5,7 @@
 
 **Contents**
 
-- [perli &mdash; introduction](#perli-&mdash-introduction)
+- [perli &mdash; introduction](#perli-mdash-introduction)
 - [Examples](#examples)
   - [Startup and help](#startup-and-help)
   - [Automatic printing of results, use as a calculator](#automatic-printing-of-results-use-as-a-calculator)
@@ -228,13 +228,13 @@ This project gratefully depends on the following open-source components, accordi
 
 ## npm dependencies
 
-* [doctoc (D)](https://github.com/thlorenz/doctoc)
-* [json (D)](https://github.com/trentm/json)
+* [doctoc (D)](https://github.com/thlorenz/doctoc#readme)
+* [json (D)](https://github.com/trentm/json#readme)
 * [marked-man (D)](https://github.com/kapouer/marked-man#readme)
-* [replace (D)](https://github.com/harthur/replace)
+* [replace (D)](https://github.com/ALMaclaine/replace#readme)
 * [semver (D)](https://github.com/npm/node-semver#readme)
-* [tap (D)](https://github.com/isaacs/node-tap#readme)
-* [urchin (D)](https://github.com/tlevine/urchin)
+* [tap (D)](http://node-tap.org/)
+* [urchin (D)](https://github.com/tlevine/urchin#readme)
 
 <!-- DO NOT EDIT THE NEXT CHAPTER and RETAIN THIS COMMENT: The next chapter is updated by `make update-readme/release` with the contents of 'CHANGELOG.md'. ALSO, LEAVE AT LEAST 1 BLANK LINE AFTER THIS COMMENT. -->
 
@@ -243,6 +243,9 @@ This project gratefully depends on the following open-source components, accordi
 Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
+
+* **[v0.1.3](https://github.com/mklement0/perli/compare/v0.1.2...v0.1.3)** (2019-02-11):
+  * [enhancement] Auto-flushing of stdout activated to support invocation from editors such as [neovim](https://github.com/neovim/neovim) - fixes #4
 
 * **[v0.1.2](https://github.com/mklement0/perli/compare/v0.1.1...v0.1.2)** (2015-09-30):
   * [fix] Fixed inability to define global variables (without `my`) in older Perl versions (e.g., v5.14).

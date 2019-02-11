@@ -17,9 +17,13 @@ use File::Temp qw(tempfile);
 use IO::Handle;
 use if $^O eq 'MSWin32', 'Win32::Console::ANSI'; # !! Without this, ANSI codes don't work on Windows.
 
+# Enable autoflush for stdout to enable use from editors such as neovim 
+# - see https://github.com/mklement0/perli/issues/4
+$|++;
+
 my $kTHIS_NAME = basename $0;
 my $kTHIS_HOME = 'https://github.com/mklement0/perli';
-my $kTHIS_VERSION = 'v0.1.2'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
+my $kTHIS_VERSION = 'v0.1.3'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
 
 # Debugging support: define p() for printing values diagnostically.
 use Data::Dumper; $Data::Dumper::Terse = 1; sub p { print Dumper(@_); };

@@ -4,6 +4,9 @@ Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
 
+* **[v0.1.4](https://github.com/mklement0/perli/compare/v0.1.3...v0.1.4)** (2019-02-11):
+  * [fix] Ammends v0.1.3 to auto-flush stderr too.
+
 * **[v0.1.3](https://github.com/mklement0/perli/compare/v0.1.2...v0.1.3)** (2019-02-11):
   * [enhancement] Auto-flushing of stdout activated to support invocation from editors such as [neovim](https://github.com/neovim/neovim) - fixes #4
 

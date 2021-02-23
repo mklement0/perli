@@ -26,7 +26,7 @@ STDERR->autoflush;
 
 my $kTHIS_NAME = basename $0;
 my $kTHIS_HOME = 'https://github.com/mklement0/perli';
-my $kTHIS_VERSION = 'v0.1.4'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
+my $kTHIS_VERSION = 'v0.1.5'; # Note that the `kTHIS_VERSION='...'` statement is automatically updated by `make version VER=<newVer>` - DO keep the 'v' prefix.
 
 # Debugging support: define p() for printing values diagnostically.
 use Data::Dumper; $Data::Dumper::Terse = 1; sub p { print Dumper(@_); };
@@ -528,7 +528,12 @@ my $perlArgs = " -n -w -C -Mutf8 -MEnglish -MMath::Trig -M$replPerlVersion " . j
 
 # Invoke Perl wih the REPL code:
 if ($useRlWrap) {          # Unix system with rlwrap.
-    # -A makes rlwrap ANSI-color-aware.
+    # --ansi-colour-aware makes rlwrap ANSI-color-aware (so it doesn't get "confused" by colored prompts)
+    #    !! Before v0.45, --ansi-colour-aware was ineffective and had NO option-argument.
+    #    !! Starting in v0.45, it gained and optional argument, '!', to "bleach" (strip colors from) prompt strings.
+    #    !! The implementation is ambiguous, because the optional argument is expected as a *separate* argument, but that is apparently internally compensated for
+    #    !! However, when the short form, -A, is used - curiously *only when launched via Per's `exec`* - *not* passing this optional argument *breaks the invocation on v0.45*.
+    #    !! Fortunately, using the long form, --ansi-colour-aware, prevents that.
     # --command-name <name> determines the filename prefixes for the history file (*_history) (and completion file (*_completions), but we use a temp. file and override that with -f).
     #   Without this option, the tue program (executable) name would be used, which would be 'perl' in our case.
     # --remember uses previously seen tokens in a given session for tab-completion
@@ -538,7 +543,7 @@ if ($useRlWrap) {          # Unix system with rlwrap.
     #       print our own, as rlwrap -S <prompt-string> would overwrite any
     #       child process prompts, such as when `.sh` is used to open a shell
     #       temporarily.
-    exec "rlwrap -A --command-name '$kTHIS_NAME' --remember -f '$tempCompletionFile' \"$perlBin\" $perlArgs '$tempScriptFile'" or die;  
+    exec "rlwrap --ansi-colour-aware --command-name '$kTHIS_NAME' --remember -f '$tempCompletionFile' \"$perlBin\" $perlArgs '$tempScriptFile'" or die;  
 } else {
   if ($^O eq 'MSWin32') { # Windows
     # !! Note that exec() doesn't work as expected on Windows (Perl is seemingly launched in the background), so we use system() instead.

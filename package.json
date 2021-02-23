@@ -2,7 +2,7 @@
   "name": "perli",
   "description": "Multi-platform REPL for Perl",
   "private": false,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "os": [
     "linux",
     "darwin",
@@ -41,7 +41,7 @@
     }
   },
   "devDependencies": {
-    "doctoc": "^0.13.0",
+    "doctoc": "^2.0.0",
     "json": "^9.0.3",
     "marked-man": "^0.1.5",
     "replace": "^1.0.1",

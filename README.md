@@ -113,7 +113,7 @@ lookup would have looked for the _keyword_).
 
 ## Supported platforms and prerequisites
 
-`perli` runs on **Linux**, **OSX**, and **Windows**, with **Perl v5.6.2 or higher** installed.
+`perli` runs on **Linux**, **macOS**, and **Windows**, with **Perl v5.6.2 or higher** installed.
 
 Using the manual installation process detailed below, `perli` may work on other Unix-like platforms too.
 
@@ -135,7 +135,7 @@ You can install `rlwrap` as follows:
 
         sudo yum install rlwrap
 
-* OSX, via [Homebrew](http://brew.sh):
+* macOS, via [Homebrew](http://brew.sh):
 
         brew install rlwrap
 
@@ -176,7 +176,7 @@ With [Node.js](http://nodejs.org/) or [io.js](https://iojs.org/) installed, inst
 
 * Download [the CLI](https://raw.githubusercontent.com/mklement0/perli/stable/bin/perli) as `perli`.
 * Make it executable with `chmod +x perli`.
-* Move it or symlink it to a folder in your `$PATH`, such as `/usr/local/bin` (OSX) or `/usr/bin` (Linux).
+* Move it or symlink it to a folder in your `$PATH`, such as `/usr/local/bin` (macOS) or `/usr/bin` (Linux).
 
 ### Windows
 
@@ -216,7 +216,7 @@ Standard options: --help, --man, --version, --home
 
 # License
 
-Copyright (c) 2015-1019 Michael Klement <mklement0@gmail.com> (http://same2u.net), released under the [MIT license](https://spdx.org/licenses/MIT#licenseText).
+Copyright (c) 2015-2021 Michael Klement <mklement0@gmail.com> (http://same2u.net), released under the [MIT license](https://spdx.org/licenses/MIT#licenseText).
 
 ## Acknowledgements
 
@@ -228,13 +228,13 @@ This project gratefully depends on the following open-source components, accordi
 
 ## npm dependencies
 
-* [doctoc (D)](https://github.com/thlorenz/doctoc#readme)
-* [json (D)](https://github.com/trentm/json#readme)
+* [doctoc (D)]()
+* [json (D)](https://github.com/trentm/json)
 * [marked-man (D)](https://github.com/kapouer/marked-man#readme)
-* [replace (D)](https://github.com/ALMaclaine/replace#readme)
+* [replace (D)]()
 * [semver (D)](https://github.com/npm/node-semver#readme)
 * [tap (D)](http://node-tap.org/)
-* [urchin (D)](https://github.com/tlevine/urchin#readme)
+* [urchin (D)](https://github.com/tlevine/urchin)
 
 <!-- DO NOT EDIT THE NEXT CHAPTER and RETAIN THIS COMMENT: The next chapter is updated by `make update-readme/release` with the contents of 'CHANGELOG.md'. ALSO, LEAVE AT LEAST 1 BLANK LINE AFTER THIS COMMENT. -->
 
@@ -243,6 +243,9 @@ This project gratefully depends on the following open-source components, accordi
 Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
+
+* **[v0.1.5](https://github.com/mklement0/perli/compare/v0.1.4...v0.1.5)** (2021-02-23):
+  * [fix] Compatibility with `rlwrap` version 0.45, which in combination with Perl's `exec` function caused a breaking change.
 
 * **[v0.1.4](https://github.com/mklement0/perli/compare/v0.1.3...v0.1.4)** (2019-02-11):
   * [fix] Ammends v0.1.3 to auto-flush stderr too.

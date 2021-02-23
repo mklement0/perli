@@ -4,6 +4,9 @@ Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
 
+* **[v0.1.5](https://github.com/mklement0/perli/compare/v0.1.4...v0.1.5)** (2021-02-23):
+  * [fix] Compatibility with `rlwrap` version 0.45, which in combination with Perl's `exec` function caused a breaking change.
+
 * **[v0.1.4](https://github.com/mklement0/perli/compare/v0.1.3...v0.1.4)** (2019-02-11):
   * [fix] Ammends v0.1.3 to auto-flush stderr too.
 

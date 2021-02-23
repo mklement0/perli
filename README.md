@@ -113,7 +113,7 @@ lookup would have looked for the _keyword_).
 
 ## Supported platforms and prerequisites
 
-`perli` runs on **Linux**, **OSX**, and **Windows**, with **Perl v5.6.2 or higher** installed.
+`perli` runs on **Linux**, **macOS**, and **Windows**, with **Perl v5.6.2 or higher** installed.
 
 Using the manual installation process detailed below, `perli` may work on other Unix-like platforms too.
 
@@ -135,7 +135,7 @@ You can install `rlwrap` as follows:
 
         sudo yum install rlwrap
 
-* OSX, via [Homebrew](http://brew.sh):
+* macOS, via [Homebrew](http://brew.sh):
 
         brew install rlwrap
 
@@ -176,7 +176,7 @@ With [Node.js](http://nodejs.org/) or [io.js](https://iojs.org/) installed, inst
 
 * Download [the CLI](https://raw.githubusercontent.com/mklement0/perli/stable/bin/perli) as `perli`.
 * Make it executable with `chmod +x perli`.
-* Move it or symlink it to a folder in your `$PATH`, such as `/usr/local/bin` (OSX) or `/usr/bin` (Linux).
+* Move it or symlink it to a folder in your `$PATH`, such as `/usr/local/bin` (macOS) or `/usr/bin` (Linux).
 
 ### Windows
 
@@ -216,7 +216,7 @@ Standard options: --help, --man, --version, --home
 
 # License
 
-Copyright (c) 2015 Michael Klement <mklement0@gmail.com> (http://same2u.net), released under the [MIT license](https://spdx.org/licenses/MIT#licenseText).
+Copyright (c) 2015-2021 Michael Klement <mklement0@gmail.com> (http://same2u.net), released under the [MIT license](https://spdx.org/licenses/MIT#licenseText).
 
 ## Acknowledgements
 
@@ -243,6 +243,9 @@ This project gratefully depends on the following open-source components, accordi
 Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
+
+* **[v0.1.3](https://github.com/mklement0/perli/compare/v0.1.2...v0.1.3)** (2021-02-23):
+  * [fix] Compatibility with rlwrap version 0.45, which in combination with Perl's `exec` function caused a breaking change.
 
 * **[v0.1.2](https://github.com/mklement0/perli/compare/v0.1.1...v0.1.2)** (2015-09-30):
   * [fix] Fixed inability to define global variables (without `my`) in older Perl versions (e.g., v5.14).

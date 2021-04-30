@@ -2,11 +2,11 @@
   "name": "perli",
   "description": "Multi-platform REPL for Perl",
   "private": false,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "os": [
     "linux",
     "android",
-    "darwin",    
+    "darwin",
     "win32"
   ],
   "preferGlobal": true,
@@ -47,7 +47,7 @@
     "marked-man": "^0.1.5",
     "replace": "^1.0.1",
     "semver": "^4.2.0",
-    "tap": "^12.5.2",
+    "tap": "^15.0.6",
     "urchin": "^0.0.5"
   }
 }

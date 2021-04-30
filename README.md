@@ -113,7 +113,7 @@ lookup would have looked for the _keyword_).
 
 ## Supported platforms and prerequisites
 
-`perli` runs on **Linux**, **macOS**, and **Windows**, with **Perl v5.6.2 or higher** installed.
+`perli` runs on **Linux**, **macOS**, **Windows**, and - as @matheusfillipe assures me - on **Android**, with **Perl v5.6.2 or higher** installed.
 
 Using the manual installation process detailed below, `perli` may work on other Unix-like platforms too.
 
@@ -233,7 +233,7 @@ This project gratefully depends on the following open-source components, accordi
 * [marked-man (D)](https://github.com/kapouer/marked-man#readme)
 * [replace (D)]()
 * [semver (D)](https://github.com/npm/node-semver#readme)
-* [tap (D)](http://node-tap.org/)
+* [tap (D)](http://www.node-tap.org/)
 * [urchin (D)](https://github.com/tlevine/urchin)
 
 <!-- DO NOT EDIT THE NEXT CHAPTER and RETAIN THIS COMMENT: The next chapter is updated by `make update-readme/release` with the contents of 'CHANGELOG.md'. ALSO, LEAVE AT LEAST 1 BLANK LINE AFTER THIS COMMENT. -->
@@ -243,6 +243,9 @@ This project gratefully depends on the following open-source components, accordi
 Versioning complies with [semantic versioning (semver)](http://semver.org/).
 
 <!-- NOTE: An entry template for a new version is automatically added each time `make version` is called. Fill in changes afterwards. -->
+
+* **[v0.1.6](https://github.com/mklement0/perli/compare/v0.1.5...v0.1.6)** (2021-04-30):
+  * [enhancement] Package is now installable on Android too, where @matheusfillipe assures me that `perli` works too (tip of the hat for the PR).
 
 * **[v0.1.5](https://github.com/mklement0/perli/compare/v0.1.4...v0.1.5)** (2021-02-23):
   * [fix] Compatibility with `rlwrap` version 0.45, which in combination with Perl's `exec` function caused a breaking change.

@@ -5,7 +5,8 @@
   "version": "0.1.5",
   "os": [
     "linux",
-    "darwin",
+    "android",
+    "darwin",    
     "win32"
   ],
   "preferGlobal": true,

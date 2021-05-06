@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "doctoc": "^2.0.0",
-    "json": "^9.0.3",
+    "json": "^10.0.0",
     "marked-man": "^0.1.5",
     "replace": "^1.0.1",
     "semver": "^4.2.0",
